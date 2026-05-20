@@ -12,6 +12,8 @@ const userRoutes = require('./routes/userRoutes.js');
 const projectRoutes = require('./routes/project.routes.js'); 
 const taskRoutes = require('./routes/task.routes.js');
 const teamRoutes = require('./routes/team.routes');
+const analyticsRoutes = require('./routes/analytics.routes');
+
 // Load environment variables
 loadEnv();
 
@@ -33,6 +35,8 @@ app.use('/api/users', userRoutes);
 app.use('/api/projects', projectRoutes);
 app.use('/api/tasks', taskRoutes);
 app.use('/api/team', teamRoutes);
+app.use('/api/analytics', analyticsRoutes);
+
 // Health check endpoint
 app.get('/health', (req, res) => {
   res.status(200).json({

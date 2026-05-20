@@ -1,8 +1,5 @@
 import { apiClient } from './index';
 import { DashboardStats, Activity } from '@/types';
-import { mockService } from '@/services/mock.service';
-
-// TODO: Replace mock calls with actual API endpoints when backend is ready
 
 export interface ProjectAnalytics {
   projectId: string;
@@ -11,7 +8,7 @@ export interface ProjectAnalytics {
   completedTasks: number;
   overdueTasks: number;
   completionRate: number;
-  averageTaskDuration: number; // in hours
+  averageTaskDuration: number;
   burndownData: { date: string; remaining: number; ideal: number }[];
   velocityData: { week: string; completed: number }[];
 }
@@ -49,124 +46,94 @@ export interface Timesheet {
 }
 
 export const analyticsApi = {
-  /**
-   * Get dashboard stats
-   * GET /analytics/dashboard
-   */
   getDashboardStats: async (): Promise<DashboardStats> => {
-    // TODO: Replace with actual API call
-    // return apiClient.get('/analytics/dashboard').then(res => res.data);
-    return mockService.analytics.getDashboardStats();
+    const res = await apiClient.get('/analytics/dashboard');
+    return res.data;
   },
 
-  /**
-   * Get project analytics
-   * GET /analytics/projects/:id
-   */
   getProjectAnalytics: async (projectId: string): Promise<ProjectAnalytics> => {
-    // TODO: Replace with actual API call
-    // return apiClient.get(`/analytics/projects/${projectId}`).then(res => res.data);
-    return mockService.analytics.getProjectAnalytics(projectId);
+    const res = await apiClient.get(`/analytics/projects/${projectId}`);
+    return res.data;
   },
 
-  /**
-   * Get all projects analytics
-   * GET /analytics/projects
-   */
   getAllProjectsAnalytics: async (): Promise<ProjectAnalytics[]> => {
-    return mockService.analytics.getAllProjectsAnalytics();
+    const res = await apiClient.get('/analytics/projects');
+    return res.data;
   },
 
-  getTeamProductivity: async (dateRange?: { start: string; end: string }): Promise<TeamProductivity[]> => {
-    return mockService.analytics.getTeamProductivity(dateRange);
+  getTeamProductivity: async (dateRange?: { start: string; end: string }) => {
+    const res = await apiClient.get('/analytics/team/productivity', {
+      params: dateRange,
+    });
+    return res.data;
   },
 
-  getTaskTrends: async (period: 'week' | 'month' | 'quarter'): Promise<{ date: string; completed: number; created: number }[]> => {
-    // TODO: Replace with actual API call
-    // return apiClient.get('/analytics/tasks/trends', { params: { period } }).then(res => res.data);
-    return mockService.analytics.getTaskTrends(period);
+  getTaskTrends: async (period: 'week' | 'month' | 'quarter') => {
+    const res = await apiClient.get('/analytics/tasks/trends', {
+      params: { period },
+    });
+    return res.data;
   },
 
-  /**
-   * Get time reports
-   * GET /analytics/time-reports
-   */
   getTimeReports: async (filters?: {
     userId?: string;
     projectId?: string;
     startDate?: string;
     endDate?: string;
-  }): Promise<TimeReport[]> => {
-    // TODO: Replace with actual API call
-    // return apiClient.get('/analytics/time-reports', { params: filters }).then(res => res.data);
-    return mockService.analytics.getTimeReports(filters);
+  }) => {
+    const res = await apiClient.get('/analytics/time-reports', {
+      params: filters,
+    });
+    return res.data;
   },
 
-  /**
-   * Get timesheets
-   * GET /analytics/timesheets
-   */
   getTimesheets: async (filters?: {
     userId?: string;
-    status?: Timesheet['status'];
+    status?: string;
     startDate?: string;
     endDate?: string;
   }): Promise<Timesheet[]> => {
-    // TODO: Replace with actual API call
-    // return apiClient.get('/analytics/timesheets', { params: filters }).then(res => res.data);
-    return mockService.analytics.getTimesheets(filters);
+    const res = await apiClient.get('/analytics/timesheets', {
+      params: filters,
+    });
+    return res.data;
   },
 
-  /**
-   * Submit timesheet
-   * POST /analytics/timesheets/:id/submit
-   */
-  submitTimesheet: async (id: string): Promise<Timesheet> => {
-    // TODO: Replace with actual API call
-    // return apiClient.post(`/analytics/timesheets/${id}/submit`).then(res => res.data);
-    return mockService.analytics.submitTimesheet(id);
+  submitTimesheet: async (id: string) => {
+    const res = await apiClient.post(`/analytics/timesheets/${id}/submit`);
+    return res.data;
   },
 
-  /**
-   * Approve timesheet
-   * POST /analytics/timesheets/:id/approve
-   */
-  approveTimesheet: async (id: string): Promise<Timesheet> => {
-    // TODO: Replace with actual API call
-    // return apiClient.post(`/analytics/timesheets/${id}/approve`).then(res => res.data);
-    return mockService.analytics.approveTimesheet(id);
+  approveTimesheet: async (id: string) => {
+    const res = await apiClient.post(`/analytics/timesheets/${id}/approve`);
+    return res.data;
   },
 
-  /**
-   * Reject timesheet
-   * POST /analytics/timesheets/:id/reject
-   */
-  rejectTimesheet: async (id: string, reason: string): Promise<Timesheet> => {
-    // TODO: Replace with actual API call
-    // return apiClient.post(`/analytics/timesheets/${id}/reject`, { reason }).then(res => res.data);
-    return mockService.analytics.rejectTimesheet(id, reason);
+  rejectTimesheet: async (id: string, reason: string) => {
+    const res = await apiClient.post(
+      `/analytics/timesheets/${id}/reject`,
+      { reason }
+    );
+    return res.data;
   },
 
-  /**
-   * Get recent activity
-   * GET /analytics/activity
-   */
-  getRecentActivity: async (limit?: number): Promise<Activity[]> => {
-    // TODO: Replace with actual API call
-    // return apiClient.get('/analytics/activity', { params: { limit } }).then(res => res.data);
-    return mockService.analytics.getRecentActivity(limit);
+  getRecentActivity: async (limit = 20): Promise<Activity[]> => {
+    const res = await apiClient.get('/analytics/activity', {
+      params: { limit },
+    });
+    return res.data;
   },
 
-  /**
-   * Export report
-   * GET /analytics/export
-   */
-  exportReport: async (type: 'tasks' | 'time' | 'productivity', format: 'csv' | 'pdf', filters?: Record<string, any>): Promise<Blob> => {
-    // TODO: Replace with actual API call
-    // return apiClient.get('/analytics/export', { 
-    //   params: { type, format, ...filters },
-    //   responseType: 'blob'
-    // }).then(res => res.data);
-    return mockService.analytics.exportReport(type, format, filters);
+  exportReport: async (
+    type: 'tasks' | 'time' | 'productivity',
+    format: 'csv' | 'pdf',
+    filters?: Record<string, any>
+  ): Promise<Blob> => {
+    const res = await apiClient.get('/analytics/export', {
+      params: { type, format, ...filters },
+      responseType: 'blob',
+    });
+
+    return res.data;
   },
 };

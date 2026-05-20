@@ -9,12 +9,14 @@ import {
   ArrowUpRight,
   ArrowDownRight,
 } from 'lucide-react';
+
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { DashboardStats, Activity } from '@/types';
-import { dashboardService } from '@/services/api';
+import { DashboardStats } from '@/types';
+import { analyticsApi } from '@/api/analytics.api';
 import { StatCardSkeleton } from '@/components/common/Skeleton';
 import { Avatar } from '@/components/common/Avatar';
 import { useAuth } from '@/context/AuthContext';
+
 import {
   BarChart,
   Bar,
@@ -28,12 +30,35 @@ import {
   Cell,
 } from 'recharts';
 
+/* -------------------- COLOR MAP (FIXED TAILWIND ISSUE) -------------------- */
+
+const colorMap = {
+  primary: {
+    bg: 'bg-primary/10',
+    text: 'text-primary',
+  },
+  info: {
+    bg: 'bg-blue-500/10',
+    text: 'text-blue-500',
+  },
+  success: {
+    bg: 'bg-green-500/10',
+    text: 'text-green-500',
+  },
+  warning: {
+    bg: 'bg-yellow-500/10',
+    text: 'text-yellow-500',
+  },
+} as const;
+
+/* -------------------- STAT CARDS CONFIG -------------------- */
+
 const statCards = [
   {
     title: 'Total Projects',
     key: 'totalProjects' as const,
     icon: FolderKanban,
-    color: 'primary',
+    color: 'primary' as const,
     trend: '+12%',
     trendUp: true,
   },
@@ -41,7 +66,7 @@ const statCards = [
     title: 'Total Tasks',
     key: 'totalTasks' as const,
     icon: CheckSquare,
-    color: 'info',
+    color: 'info' as const,
     trend: '+8%',
     trendUp: true,
   },
@@ -49,7 +74,7 @@ const statCards = [
     title: 'Completed',
     key: 'completedTasks' as const,
     icon: CheckCircle2,
-    color: 'success',
+    color: 'success' as const,
     trend: '+23%',
     trendUp: true,
   },
@@ -57,23 +82,33 @@ const statCards = [
     title: 'Overdue',
     key: 'overdueTasks' as const,
     icon: AlertTriangle,
-    color: 'warning',
+    color: 'warning' as const,
     trend: '-5%',
     trendUp: false,
   },
 ];
 
-const COLORS = ['hsl(var(--chart-1))', 'hsl(var(--chart-2))', 'hsl(var(--chart-3))', 'hsl(var(--chart-4))', 'hsl(var(--chart-5))'];
+const COLORS = [
+  'hsl(var(--chart-1))',
+  'hsl(var(--chart-2))',
+  'hsl(var(--chart-3))',
+  'hsl(var(--chart-4))',
+  'hsl(var(--chart-5))',
+];
+
+/* -------------------- COMPONENT -------------------- */
 
 export const DashboardPage: React.FC = () => {
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const { user } = useAuth();
 
+  /* -------------------- FETCH DATA -------------------- */
+
   useEffect(() => {
     const fetchStats = async () => {
       try {
-        const data = await dashboardService.getStats();
+        const data = await analyticsApi.getDashboardStats();
         setStats(data);
       } catch (error) {
         console.error('Failed to fetch dashboard stats:', error);
@@ -85,10 +120,13 @@ export const DashboardPage: React.FC = () => {
     fetchStats();
   }, []);
 
+  /* -------------------- TIME FORMAT -------------------- */
+
   const getTimeAgo = (dateString: string) => {
     const date = new Date(dateString);
     const now = new Date();
     const diff = now.getTime() - date.getTime();
+
     const minutes = Math.floor(diff / 60000);
     const hours = Math.floor(diff / 3600000);
     const days = Math.floor(diff / 86400000);
@@ -98,9 +136,12 @@ export const DashboardPage: React.FC = () => {
     return `${days}d ago`;
   };
 
+  /* -------------------- UI -------------------- */
+
   return (
     <div className="p-6 lg:p-8 space-y-8">
-      {/* Header */}
+
+      {/* ---------------- HEADER ---------------- */}
       <div>
         <motion.h1
           initial={{ opacity: 0, y: -10 }}
@@ -109,6 +150,7 @@ export const DashboardPage: React.FC = () => {
         >
           Welcome back, {user?.name?.split(' ')[0]}!
         </motion.h1>
+
         <motion.p
           initial={{ opacity: 0, y: -10 }}
           animate={{ opacity: 1, y: 0 }}
@@ -119,56 +161,71 @@ export const DashboardPage: React.FC = () => {
         </motion.p>
       </div>
 
-      {/* Stats Grid */}
+      {/* ---------------- STATS ---------------- */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
         {isLoading
-          ? Array.from({ length: 4 }).map((_, i) => <StatCardSkeleton key={i} />)
-          : statCards.map((stat, index) => (
-              <motion.div
-                key={stat.key}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: index * 0.1 }}
-              >
-                <Card className="relative overflow-hidden">
-                  <CardContent className="p-6">
-                    <div className="flex items-center justify-between mb-4">
-                      <span className="text-sm font-medium text-muted-foreground">{stat.title}</span>
-                      <div className={`p-2 rounded-lg bg-${stat.color}/10`}>
-                        <stat.icon className={`w-5 h-5 text-${stat.color}`} />
+          ? Array.from({ length: 4 }).map((_, i) => (
+              <StatCardSkeleton key={i} />
+            ))
+          : statCards.map((stat, index) => {
+              const color = colorMap[stat.color];
+
+              return (
+                <motion.div
+                  key={stat.key}
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: index * 0.1 }}
+                >
+                  <Card>
+                    <CardContent className="p-6">
+
+                      {/* TITLE + ICON */}
+                      <div className="flex items-center justify-between mb-4">
+                        <span className="text-sm font-medium text-muted-foreground">
+                          {stat.title}
+                        </span>
+
+                        <div className={`p-2 rounded-lg ${color.bg}`}>
+                          <stat.icon className={`w-5 h-5 ${color.text}`} />
+                        </div>
                       </div>
-                    </div>
-                    <div className="flex items-end justify-between">
-                      <div className="text-3xl font-bold text-foreground">
-                        {stats?.[stat.key] || 0}
+
+                      {/* VALUE + TREND */}
+                      <div className="flex items-end justify-between">
+                        <div className="text-3xl font-bold text-foreground">
+                          {stats?.[stat.key] ?? 0}
+                        </div>
+
+                        <div
+                          className={`flex items-center text-sm ${
+                            stat.trendUp ? 'text-green-500' : 'text-yellow-500'
+                          }`}
+                        >
+                          {stat.trendUp ? (
+                            <ArrowUpRight className="w-4 h-4" />
+                          ) : (
+                            <ArrowDownRight className="w-4 h-4" />
+                          )}
+                          {stat.trend}
+                        </div>
                       </div>
-                      <div
-                        className={`flex items-center text-sm ${
-                          stat.trendUp ? 'text-success' : 'text-warning'
-                        }`}
-                      >
-                        {stat.trendUp ? (
-                          <ArrowUpRight className="w-4 h-4" />
-                        ) : (
-                          <ArrowDownRight className="w-4 h-4" />
-                        )}
-                        {stat.trend}
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              </motion.div>
-            ))}
+
+                    </CardContent>
+                  </Card>
+                </motion.div>
+              );
+            })}
       </div>
 
-      {/* Charts Row */}
+      {/* ---------------- CHARTS ---------------- */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Tasks by Status Chart */}
+
+        {/* BAR CHART */}
         <motion.div
+          className="lg:col-span-2"
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.4 }}
-          className="lg:col-span-2"
         >
           <Card className="h-full">
             <CardHeader>
@@ -177,32 +234,16 @@ export const DashboardPage: React.FC = () => {
                 Tasks by Status
               </CardTitle>
             </CardHeader>
+
             <CardContent>
               <div className="h-[300px]">
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart data={stats?.tasksByStatus || []}>
-                    <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
-                    <XAxis
-                      dataKey="status"
-                      tick={{ fill: 'hsl(var(--muted-foreground))' }}
-                      axisLine={{ stroke: 'hsl(var(--border))' }}
-                    />
-                    <YAxis
-                      tick={{ fill: 'hsl(var(--muted-foreground))' }}
-                      axisLine={{ stroke: 'hsl(var(--border))' }}
-                    />
-                    <Tooltip
-                      contentStyle={{
-                        backgroundColor: 'hsl(var(--card))',
-                        border: '1px solid hsl(var(--border))',
-                        borderRadius: '8px',
-                      }}
-                    />
-                    <Bar
-                      dataKey="count"
-                      fill="hsl(var(--primary))"
-                      radius={[4, 4, 0, 0]}
-                    />
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="status" />
+                    <YAxis />
+                    <Tooltip />
+                    <Bar dataKey="count" fill="hsl(var(--primary))" />
                   </BarChart>
                 </ResponsiveContainer>
               </div>
@@ -210,90 +251,94 @@ export const DashboardPage: React.FC = () => {
           </Card>
         </motion.div>
 
-        {/* Tasks by Priority Pie Chart */}
+        {/* PIE CHART */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.5 }}
         >
           <Card className="h-full">
             <CardHeader>
               <CardTitle>Tasks by Priority</CardTitle>
             </CardHeader>
+
             <CardContent>
               <div className="h-[300px]">
                 <ResponsiveContainer width="100%" height="100%">
                   <PieChart>
                     <Pie
                       data={stats?.tasksByPriority || []}
+                      dataKey="count"
+                      nameKey="priority"
                       cx="50%"
                       cy="50%"
                       innerRadius={60}
                       outerRadius={100}
-                      paddingAngle={2}
-                      dataKey="count"
-                      nameKey="priority"
                     >
                       {stats?.tasksByPriority?.map((_, index) => (
-                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                        <Cell
+                          key={index}
+                          fill={COLORS[index % COLORS.length]}
+                        />
                       ))}
                     </Pie>
-                    <Tooltip
-                      contentStyle={{
-                        backgroundColor: 'hsl(var(--card))',
-                        border: '1px solid hsl(var(--border))',
-                        borderRadius: '8px',
-                      }}
-                    />
+                    <Tooltip />
                   </PieChart>
                 </ResponsiveContainer>
-                <div className="flex flex-wrap justify-center gap-4 mt-4">
-                  {stats?.tasksByPriority?.map((item, index) => (
-                    <div key={item.priority} className="flex items-center gap-2">
-                      <div
-                        className="w-3 h-3 rounded-full"
-                        style={{ backgroundColor: COLORS[index % COLORS.length] }}
-                      />
-                      <span className="text-sm text-muted-foreground">{item.priority}</span>
-                    </div>
-                  ))}
-                </div>
               </div>
             </CardContent>
           </Card>
         </motion.div>
       </div>
 
-      {/* Recent Activity */}
+      {/* ---------------- ACTIVITY ---------------- */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.6 }}
       >
         <Card>
           <CardHeader>
             <CardTitle>Recent Activity</CardTitle>
           </CardHeader>
+
           <CardContent>
             <div className="space-y-6">
-              {stats?.recentActivity?.map((activity) => (
-                <div key={activity.id} className="flex items-start gap-4">
-                  <Avatar src={activity.user.avatar} name={activity.user.name} size="md" />
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm">
-                      <span className="font-medium text-foreground">{activity.user.name}</span>{' '}
-                      <span className="text-muted-foreground">{activity.description}</span>
-                    </p>
-                    <p className="text-xs text-muted-foreground mt-1">
-                      {getTimeAgo(activity.createdAt)}
-                    </p>
+
+              {stats?.recentActivity?.length ? (
+                stats.recentActivity.map((activity) => (
+                  <div key={activity.id} className="flex items-start gap-4">
+                    <Avatar
+                      src={activity.user.avatar}
+                      name={activity.user.name}
+                      size="md"
+                    />
+
+                    <div>
+                      <p className="text-sm">
+                        <span className="font-medium">
+                          {activity.user.name}
+                        </span>{' '}
+                        <span className="text-muted-foreground">
+                          {activity.description}
+                        </span>
+                      </p>
+
+                      <p className="text-xs text-muted-foreground mt-1">
+                        {getTimeAgo(activity.createdAt)}
+                      </p>
+                    </div>
                   </div>
-                </div>
-              ))}
+                ))
+              ) : (
+                <p className="text-sm text-muted-foreground">
+                  No recent activity
+                </p>
+              )}
+
             </div>
           </CardContent>
         </Card>
       </motion.div>
+
     </div>
   );
 };
