@@ -1,5 +1,7 @@
-import { apiClient } from './index'; // Targets your http://localhost:5000/api configuration
+import { apiClient } from './index'; 
 import { Project, User } from '@/types';
+
+// --- Interfaces ---
 
 export interface CreateProjectRequest {
   name: string;
@@ -18,6 +20,7 @@ export interface UpdateProjectRequest {
   startDate?: string;
   endDate?: string;
 }
+
 export interface ProjectMember {
   userId: string;
   role: 'owner' | 'admin' | 'member' | 'viewer';
@@ -40,148 +43,72 @@ export interface Milestone {
   projectId: string;
 }
 
+// --- Helper ---
+
+/**
+ * Standardizes API responses
+ * Assumes common format: { data: T } or just T
+ */
+const handleResponse = <T>(res: any): T => res.data?.data ?? res.data;
+
+// --- API Service ---
+
 export const projectApi = {
-  /**
-   * Get all projects
-   * GET /projects
-  */
- getAll: async (filters?: { status?: string; search?: string }): Promise<Project[]> => {
-    return apiClient.get('/projects', { params: filters }).then(res => res.data?.data ?? res.data);
-  },
+  // --- Projects ---
+  getAll: async (filters?: { status?: string; search?: string }): Promise<Project[]> => 
+    handleResponse(await apiClient.get('/projects', { params: filters })),
 
-  /**
-   * Get single project by ID
-   * GET /projects/:id
-   */
-  getById: async (id: string): Promise<Project> => {
-    return apiClient.get(`/projects/${id}`).then(res => res.data?.data ?? res.data);
-  },
+  getById: async (id: string): Promise<Project> => 
+    handleResponse(await apiClient.get(`/projects/${id}`)),
 
-  /**
-   * Create new project
-   * POST /projects
-   */
-  create: async (data: CreateProjectRequest): Promise<Project> => {
-    return apiClient.post('/projects', data).then(res => res.data?.data ?? res.data);
-  },
-  
-  /**
-   * Update project
-   * PATCH /projects/:id
-   */
-  update: async (id: string, data: UpdateProjectRequest): Promise<Project> => {
-    return apiClient.patch(`/projects/${id}`, data).then(res => res.data?.data ?? res.data);
-  },
+  create: async (data: CreateProjectRequest): Promise<Project> => 
+    handleResponse(await apiClient.post('/projects', data)),
 
-  /**
-   * Delete project
-   * DELETE /projects/:id
-   */
-  delete: async (id: string): Promise<void> => {
-    return apiClient.delete(`/projects/${id}`).then(res => res.data);
-  },
+  update: async (id: string, data: UpdateProjectRequest): Promise<Project> => 
+    handleResponse(await apiClient.patch(`/projects/${id}`, data)),
 
-  /**
-   * Archive project
-   * POST /projects/:id/archive
-   */
-  archive: async (id: string): Promise<Project> => {
-    return apiClient.post(`/projects/${id}/archive`).then(res => res.data?.data ?? res.data);
-  },
+  delete: async (id: string): Promise<void> => 
+    await apiClient.delete(`/projects/${id}`),
 
-  /**
-   * Restore archived project
-   * POST /projects/:id/restore
-   */
-  restore: async (id: string): Promise<Project> => {
-    return apiClient.post(`/projects/${id}/restore`).then(res => res.data?.data ?? res.data);
-  },
+  archive: async (id: string): Promise<Project> => 
+    handleResponse(await apiClient.post(`/projects/${id}/archive`)),
 
-  /**
-   * Clone project
-   * POST /projects/:id/clone
-   */
-  clone: async (id: string, name: string): Promise<Project> => {
-    return apiClient.post(`/projects/${id}/clone`, { name }).then(res => res.data?.data ?? res.data);
-  },
+  restore: async (id: string): Promise<Project> => 
+    handleResponse(await apiClient.post(`/projects/${id}/restore`)),
 
-  /**
-   * Get project members
-   * GET /projects/:id/members
-   */
-  getMembers: async (id: string): Promise<User[]> => {
-    return apiClient.get(`/projects/${id}/members`).then(res => res.data?.data ?? res.data);
-  },
+  clone: async (id: string, name: string): Promise<Project> => 
+    handleResponse(await apiClient.post(`/projects/${id}/clone`, { name })),
 
-  /**
-   * Add member to project
-   * POST /projects/:id/members
-   */
-  addMember: async (projectId: string, data: ProjectMember): Promise<User> => {
-    return apiClient.post(`/projects/${projectId}/members`, data).then(res => res.data?.data ?? res.data);
-  },
+  // --- Members ---
+  getMembers: async (id: string): Promise<User[]> => 
+    handleResponse(await apiClient.get(`/projects/${id}/members`)),
 
-  /**
-   * Remove member from project
-   * DELETE /projects/:id/members/:userId
-   */
-  removeMember: async (projectId: string, userId: string): Promise<void> => {
-    return apiClient.delete(`/projects/${projectId}/members/${userId}`).then(res => res.data);
-  },
+  addMember: async (projectId: string, data: ProjectMember): Promise<User> => 
+    handleResponse(await apiClient.post(`/projects/${projectId}/members`, data)),
 
-  /**
-   * Update member role
-   * PATCH /projects/:id/members/:userId
-   */
-  updateMemberRole: async (projectId: string, userId: string, role: ProjectMember['role']): Promise<User> => {
-    return apiClient.patch(`/projects/${projectId}/members/${userId}`, { role }).then(res => res.data?.data ?? res.data);
-  },
+  removeMember: async (projectId: string, userId: string): Promise<void> => 
+    await apiClient.delete(`/projects/${projectId}/members/${userId}`),
 
-  /**
-   * Get project templates
-   * GET /projects/templates
-   */
-  getTemplates: async (): Promise<ProjectTemplate[]> => {
-    return apiClient.get('/projects/templates').then(res => res.data?.data ?? res.data);
-  },
+  updateMemberRole: async (projectId: string, userId: string, role: ProjectMember['role']): Promise<User> => 
+    handleResponse(await apiClient.patch(`/projects/${projectId}/members/${userId}`, { role })),
 
-  /**
-   * Create project from template
-   * POST /projects/from-template
-   */
-  createFromTemplate: async (templateId: string, name: string): Promise<Project> => {
-    return apiClient.post('/projects/from-template', { templateId, name }).then(res => res.data?.data ?? res.data);
-  },
+  // --- Templates ---
+  getTemplates: async (): Promise<ProjectTemplate[]> => 
+    handleResponse(await apiClient.get('/projects/templates')),
 
-  /**
-   * Get project milestones
-   * GET /projects/:id/milestones
-   */
-  getMilestones: async (projectId: string): Promise<Milestone[]> => {
-    return apiClient.get(`/projects/${projectId}/milestones`).then(res => res.data?.data ?? res.data);
-  },
+  createFromTemplate: async (templateId: string, name: string): Promise<Project> => 
+    handleResponse(await apiClient.post('/projects/from-template', { templateId, name })),
 
-  /**
-   * Create milestone
-   * POST /projects/:id/milestones
-   */
-  createMilestone: async (projectId: string, data: Omit<Milestone, 'id' | 'projectId'>): Promise<Milestone> => {
-    return apiClient.post(`/projects/${projectId}/milestones`, data).then(res => res.data?.data ?? res.data);
-  },
+  // --- Milestones ---
+  getMilestones: async (projectId: string): Promise<Milestone[]> => 
+    handleResponse(await apiClient.get(`/projects/${projectId}/milestones`)),
 
-  /**
-   * Update milestone
-   * PATCH /projects/:id/milestones/:milestoneId
-   */
-  updateMilestone: async (projectId: string, milestoneId: string, data: Partial<Milestone>): Promise<Milestone> => {
-    return apiClient.patch(`/projects/${projectId}/milestones/${milestoneId}`, data).then(res => res.data?.data ?? res.data);
-  },
+  createMilestone: async (projectId: string, data: Omit<Milestone, 'id' | 'projectId'>): Promise<Milestone> => 
+    handleResponse(await apiClient.post(`/projects/${projectId}/milestones`, data)),
 
-  /**
-   * Delete milestone
-   * DELETE /projects/:id/milestones/:milestoneId
-   */
-  deleteMilestone: async (projectId: string, milestoneId: string): Promise<void> => {
-    return apiClient.delete(`/projects/${projectId}/milestones/${milestoneId}`).then(res => res.data);
-  },
+  updateMilestone: async (projectId: string, milestoneId: string, data: Partial<Milestone>): Promise<Milestone> => 
+    handleResponse(await apiClient.patch(`/projects/${projectId}/milestones/${milestoneId}`, data)),
+
+  deleteMilestone: async (projectId: string, milestoneId: string): Promise<void> => 
+    await apiClient.delete(`/projects/${projectId}/milestones/${milestoneId}`),
 };

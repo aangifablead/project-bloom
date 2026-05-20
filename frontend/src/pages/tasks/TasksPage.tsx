@@ -70,6 +70,7 @@ import { Textarea } from '@/components/ui/textarea';
 
 import { Task } from '@/types';
 import { taskApi } from '@/api/task.api';
+import { projectApi } from '@/api/project.api';
 
 import { PriorityBadge } from '@/components/common/Badge';
 import { Avatar } from '@/components/common/Avatar';
@@ -344,6 +345,8 @@ export const TasksPage: React.FC = () => {
   const isProjectTasksPage = !!projectId;
 
   const [tasks, setTasks] = useState<Task[]>([]);
+  const [projects, setProjects] = useState<any[]>([]);
+  const [projectSearch, setProjectSearch] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [priorityFilter, setPriorityFilter] = useState<Task['priority'] | 'all'>('all');
   const [isLoading, setIsLoading] = useState(true);
@@ -352,6 +355,7 @@ export const TasksPage: React.FC = () => {
     useState<Task | null>(null);
 
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isProjectPickerOpen, setIsProjectPickerOpen] = useState(false);
 
   const [editingTask, setEditingTask] =
     useState<Task | null>(null);
@@ -379,10 +383,6 @@ export const TasksPage: React.FC = () => {
     })
   );
 
-  // ======================================================
-  // FETCH TASKS
-  // ======================================================
-
   const fetchTasks = React.useCallback(async () => {
     try {
       setIsLoading(true);
@@ -406,13 +406,23 @@ export const TasksPage: React.FC = () => {
     }
   }, [toast, projectId]);
 
+  const fetchProjects = React.useCallback(async () => {
+    try {
+      const data = await projectApi.getAll();
+      setProjects(data || []);
+    } catch (error) {
+      console.error("Failed to fetch projects");
+    }
+  }, []);
+
   useEffect(() => {
     fetchTasks();
-  }, [fetchTasks]);
+    fetchProjects();
+  }, [fetchTasks, fetchProjects]);
 
-  // ======================================================
-  // FILTERED TASKS
-  // ======================================================
+  const filteredProjects = useMemo(() => {
+    return projects.filter((p) => p.name.toLowerCase().includes(projectSearch.toLowerCase()));
+  }, [projects, projectSearch]);
 
   const filteredTasks = useMemo(() => {
     return tasks.filter((task) => {
@@ -421,10 +431,6 @@ export const TasksPage: React.FC = () => {
       return matchesSearch && matchesPriority;
     });
   }, [tasks, searchQuery, priorityFilter]);
-
-  // ======================================================
-  // TASKS BY STATUS
-  // ======================================================
 
   const tasksByStatus = useMemo(() => {
     return columns.reduce((acc, column) => {
@@ -435,10 +441,6 @@ export const TasksPage: React.FC = () => {
       return acc;
     }, {} as Record<Task['status'], Task[]>);
   }, [filteredTasks]);
-
-  // ======================================================
-  // DRAG HANDLERS
-  // ======================================================
 
   const handleDragStart = (event: DragStartEvent) => {
     const task = tasks.find(
@@ -527,7 +529,17 @@ export const TasksPage: React.FC = () => {
 
   const openCreateModal = () => {
     setEditingTask(null);
-    setTaskFormData({ title: '', description: '', priority: 'medium', status: 'backlog', projectId: projectId || '' });
+    if (projectId) {
+      setTaskFormData({ title: '', description: '', priority: 'medium', status: 'backlog', projectId });
+      setIsModalOpen(true);
+    } else {
+      setIsProjectPickerOpen(true);
+    }
+  };
+
+  const handleProjectSelect = (id: string) => {
+    setTaskFormData({ title: '', description: '', priority: 'medium', status: 'backlog', projectId: id });
+    setIsProjectPickerOpen(false);
     setIsModalOpen(true);
   };
 
@@ -661,6 +673,31 @@ export const TasksPage: React.FC = () => {
             <Button variant="outline" onClick={() => setIsModalOpen(false)}>Cancel</Button>
             <Button onClick={handleSaveTask} disabled={!taskFormData.title.trim()}>Save</Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={isProjectPickerOpen} onOpenChange={setIsProjectPickerOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Select Project</DialogTitle>
+            <DialogDescription>Search and select a project to create your task.</DialogDescription>
+          </DialogHeader>
+          <Input 
+            placeholder="Search projects..." 
+            value={projectSearch} 
+            onChange={(e) => setProjectSearch(e.target.value)} 
+          />
+          <div className="max-h-[300px] overflow-auto space-y-2 mt-2">
+            {filteredProjects.map((p) => (
+              <div
+                key={p._id}
+                onClick={() => handleProjectSelect(p._id)}
+                className="p-3 border rounded cursor-pointer hover:bg-muted"
+              >
+                {p.name}
+              </div>
+            ))}
+          </div>
         </DialogContent>
       </Dialog>
     </div>

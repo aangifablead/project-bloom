@@ -47,18 +47,19 @@ const taskController = {
   },
 
   // POST /api/tasks
+  // POST /api/tasks
   createTask: async (req, res, next) => {
     try {
-      const task = new Task(req.body);
+      // Sanitize the body to handle empty strings
+      const taskData = { ...req.body };
+      if (taskData.projectId === "") {
+        taskData.projectId = null;
+      }
+
+      const task = new Task(taskData);
       await task.save();
 
-      // FALLBACK CHAIN: 
-      // 1. Try logged-in user session (req.user?.id)
-      // 2. Try the task assignee (task.assigneeId)
-      // 3. Fall back to a default system/owner placeholder to prevent a database validation crash
       const actorId = req.user?.id || task.assigneeId || "6a06fb97920dba4ec9e01ce3";
-
-      // Log initial historical footprint
       await task.logHistory(actorId, 'created');
 
       res.status(201).json({ message: 'Task created successfully', data: task });
