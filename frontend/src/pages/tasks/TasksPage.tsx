@@ -345,6 +345,7 @@ export const TasksPage: React.FC = () => {
 
   const [tasks, setTasks] = useState<Task[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
+  const [priorityFilter, setPriorityFilter] = useState<Task['priority'] | 'all'>('all');
   const [isLoading, setIsLoading] = useState(true);
 
   const [activeTask, setActiveTask] =
@@ -385,16 +386,7 @@ export const TasksPage: React.FC = () => {
   const fetchTasks = React.useCallback(async () => {
     try {
       setIsLoading(true);
-
-      let data: Task[] = [];
-
-      if (projectId) {
-        data = await taskApi.getAll({
-          projectId,
-        });
-      } else {
-        data = await taskApi.getAll();
-      }
+      let data: Task[] = projectId ? await taskApi.getAll({ projectId }) : await taskApi.getAll();
 
       const normalized = Array.isArray(data)
         ? data.map((task) => ({
@@ -423,12 +415,12 @@ export const TasksPage: React.FC = () => {
   // ======================================================
 
   const filteredTasks = useMemo(() => {
-    return tasks.filter((task) =>
-      task.title
-        .toLowerCase()
-        .includes(searchQuery.toLowerCase())
-    );
-  }, [tasks, searchQuery]);
+    return tasks.filter((task) => {
+      const matchesSearch = task.title.toLowerCase().includes(searchQuery.toLowerCase());
+      const matchesPriority = priorityFilter === 'all' || task.priority === priorityFilter;
+      return matchesSearch && matchesPriority;
+    });
+  }, [tasks, searchQuery, priorityFilter]);
 
   // ======================================================
   // TASKS BY STATUS
@@ -445,7 +437,7 @@ export const TasksPage: React.FC = () => {
   }, [filteredTasks]);
 
   // ======================================================
-  // DRAG START
+  // DRAG HANDLERS
   // ======================================================
 
   const handleDragStart = (event: DragStartEvent) => {
@@ -454,312 +446,152 @@ export const TasksPage: React.FC = () => {
         String(task.id || task._id) ===
         String(event.active.id)
     );
-
     if (task) setActiveTask(task);
   };
 
-  // ======================================================
-  // DRAG OVER
-  // ======================================================
-
   const handleDragOver = (event: DragOverEvent) => {
     const { active, over } = event;
-
     if (!over) return;
-
     const activeId = String(active.id);
     const overId = String(over.id);
-
     if (activeId === overId) return;
 
-    const activeIndex = tasks.findIndex(
-      (task) => String(task.id || task._id) === activeId
-    );
-
-    const overIndex = tasks.findIndex(
-      (task) => String(task.id || task._id) === overId
-    );
+    const activeIndex = tasks.findIndex((task) => String(task.id || task._id) === activeId);
+    const overIndex = tasks.findIndex((task) => String(task.id || task._id) === overId);
 
     if (activeIndex !== -1 && overIndex !== -1) {
-      setTasks((prev) =>
-        arrayMove(prev, activeIndex, overIndex)
-      );
+      setTasks((prev) => arrayMove(prev, activeIndex, overIndex));
     }
   };
 
-  // ======================================================
-  // DRAG END
-  // ======================================================
-
-  const handleDragEnd = async (
-    event: DragEndEvent
-  ) => {
+  const handleDragEnd = async (event: DragEndEvent) => {
     const { active, over } = event;
-
     setActiveTask(null);
-
     if (!over) return;
 
     const activeId = String(active.id);
     const overId = String(over.id);
-
-    const activeTask = tasks.find(
-      (task) =>
-        String(task.id || task._id) === activeId
-    );
+    const activeTask = tasks.find((task) => String(task.id || task._id) === activeId);
 
     if (!activeTask) return;
 
-    let targetStatus: Task['status'] =
-      activeTask.status;
-
-    const targetColumn = columns.find(
-      (column) => column.id === overId
-    );
-
-    if (targetColumn) {
-      targetStatus = targetColumn.id;
-    }
-
-    const targetTask = tasks.find(
-      (task) =>
-        String(task.id || task._id) === overId
-    );
-
-    if (targetTask) {
-      targetStatus = targetTask.status;
+    let targetStatus: Task['status'] = activeTask.status;
+    const targetColumn = columns.find((c) => c.id === overId);
+    if (targetColumn) targetStatus = targetColumn.id;
+    else {
+      const targetTask = tasks.find((t) => String(t.id || t._id) === overId);
+      if (targetTask) targetStatus = targetTask.status;
     }
 
     const previousTasks = [...tasks];
-
     setTasks((prev) =>
-      prev.map((task) =>
-        String(task.id || task._id) === activeId
-          ? {
-              ...task,
-              status: targetStatus,
-            }
-          : task
-      )
+      prev.map((t) => (String(t.id || t._id) === activeId ? { ...t, status: targetStatus } : t))
     );
 
     if (activeTask.status !== targetStatus) {
       try {
-        await taskApi.updateStatus(
-          activeId,
-          targetStatus
-        );
-
-        toast({
-          title: 'Task Updated',
-          description: `Moved to ${targetStatus}`,
-        });
+        await taskApi.updateStatus(activeId, targetStatus);
       } catch (error) {
         setTasks(previousTasks);
-
-        toast({
-          variant: 'destructive',
-          title: 'Update Failed',
-        });
+        toast({ variant: 'destructive', title: 'Update Failed' });
       }
     }
   };
-
-  // ======================================================
-  // SAVE TASK
-  // ======================================================
 
   const handleSaveTask = async () => {
     try {
       if (editingTask) {
-        const taskId =
-          editingTask.id || editingTask._id;
-
-        const updated = await taskApi.update(
-          taskId,
-          taskFormData
-        );
-
-        setTasks((prev) =>
-          prev.map((task) =>
-            (task.id || task._id) === taskId
-              ? {
-                  ...updated,
-                  id: taskId,
-                }
-              : task
-          )
-        );
-
-        toast({
-          title: 'Task Updated',
-        });
+        const taskId = editingTask.id || editingTask._id;
+        const updated = await taskApi.update(taskId, taskFormData);
+        setTasks((prev) => prev.map((t) => (t.id === taskId ? { ...t, ...updated } : t)));
       } else {
-        const created = await taskApi.create(
-          taskFormData
-        );
-
-        setTasks((prev) => [
-          ...prev,
-          {
-            ...created,
-            id: created.id || created._id,
-          },
-        ]);
-
-        toast({
-          title: 'Task Created',
-        });
+        const created = await taskApi.create(taskFormData);
+        setTasks((prev) => [...prev, { ...created, id: created.id || created._id }]);
       }
-
       setIsModalOpen(false);
     } catch (error) {
-      toast({
-        variant: 'destructive',
-        title: 'Save Failed',
-      });
+      toast({ variant: 'destructive', title: 'Save Failed' });
     }
   };
 
-  // ======================================================
-  // DELETE TASK
-  // ======================================================
-
-  const handleDeleteTask = async (
-    taskId: string
-  ) => {
+  const handleDeleteTask = async (taskId: string) => {
     const rollback = [...tasks];
-
-    setTasks((prev) =>
-      prev.filter(
-        (task) =>
-          (task.id || task._id) !== taskId
-      )
-    );
-
+    setTasks((prev) => prev.filter((t) => (t.id || t._id) !== taskId));
     try {
       await taskApi.delete(taskId);
-
-      toast({
-        title: 'Task Deleted',
-      });
     } catch (error) {
       setTasks(rollback);
-
-      toast({
-        variant: 'destructive',
-        title: 'Delete Failed',
-      });
+      toast({ variant: 'destructive', title: 'Delete Failed' });
     }
   };
-
-  // ======================================================
-  // OPEN CREATE MODAL
-  // ======================================================
 
   const openCreateModal = () => {
     setEditingTask(null);
-
-    setTaskFormData({
-      title: '',
-      description: '',
-      priority: 'medium',
-      status: 'backlog',
-      projectId: projectId || '',
-    });
-
+    setTaskFormData({ title: '', description: '', priority: 'medium', status: 'backlog', projectId: projectId || '' });
     setIsModalOpen(true);
   };
 
-  // ======================================================
-  // OPEN EDIT MODAL
-  // ======================================================
-
   const openEditModal = (task: Task) => {
     setEditingTask(task);
-
     setTaskFormData({
       title: task.title,
       description: task.description || '',
       priority: task.priority,
       status: task.status,
-      projectId: projectId || '',
+      projectId: task.projectId || projectId || '',
     });
-
     setIsModalOpen(true);
   };
 
   return (
     <div className="p-6 h-full flex flex-col">
-      {/* ====================================================== */}
-      {/* HEADER */}
-      {/* ====================================================== */}
-
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-3">
           {isProjectTasksPage && (
-            <Button
-              variant="outline"
-              size="icon"
-              onClick={() => navigate(-1)}
-            >
+            <Button variant="outline" size="icon" onClick={() => navigate(-1)}>
               <ArrowLeft className="w-4 h-4" />
             </Button>
           )}
-
           <div>
-            <h1 className="text-3xl font-bold">
-              {isProjectTasksPage
-                ? 'Project Tasks'
-                : 'All Tasks'}
-            </h1>
-
-            <p className="text-muted-foreground mt-1">
-              {isProjectTasksPage
-                ? 'Manage project tasks visually'
-                : 'Manage all workspace tasks'}
-            </p>
+            <h1 className="text-3xl font-bold">{isProjectTasksPage ? 'Project Tasks' : 'All Tasks'}</h1>
+            <p className="text-muted-foreground mt-1">Manage tasks visually</p>
           </div>
         </div>
-
         <Button onClick={openCreateModal}>
-          <Plus className="w-4 h-4 mr-2" />
-          New Task
+          <Plus className="w-4 h-4 mr-2" /> New Task
         </Button>
       </div>
-
-      {/* ====================================================== */}
-      {/* SEARCH */}
-      {/* ====================================================== */}
 
       <div className="flex gap-4 mb-6">
         <div className="relative flex-1 max-w-md">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-
           <Input
             className="pl-10"
             placeholder="Search tasks..."
             value={searchQuery}
-            onChange={(e) =>
-              setSearchQuery(e.target.value)
-            }
+            onChange={(e) => setSearchQuery(e.target.value)}
           />
         </div>
 
-        <Button variant="outline">
-          <Filter className="w-4 h-4 mr-2" />
-          Filters
-        </Button>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="outline" className={cn(priorityFilter !== 'all' && "bg-accent")}>
+              <Filter className="w-4 h-4 mr-2" />
+              {priorityFilter === 'all' ? 'Filters' : `Priority: ${priorityFilter.charAt(0).toUpperCase() + priorityFilter.slice(1)}`}
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem onClick={() => setPriorityFilter('all')}>All Priorities</DropdownMenuItem>
+            <DropdownMenuItem onClick={() => setPriorityFilter('low')}>Low</DropdownMenuItem>
+            <DropdownMenuItem onClick={() => setPriorityFilter('medium')}>Medium</DropdownMenuItem>
+            <DropdownMenuItem onClick={() => setPriorityFilter('high')}>High</DropdownMenuItem>
+            <DropdownMenuItem onClick={() => setPriorityFilter('urgent')}>Urgent</DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
 
-      {/* ====================================================== */}
-      {/* BOARD */}
-      {/* ====================================================== */}
-
       {isLoading ? (
-        <div className="flex-1 flex items-center justify-center">
-          Loading tasks...
-        </div>
+        <div className="flex-1 flex items-center justify-center">Loading tasks...</div>
       ) : (
         <div className="flex-1 overflow-x-auto pb-4">
           <DndContext
@@ -774,167 +606,60 @@ export const TasksPage: React.FC = () => {
                 <DroppableColumn
                   key={column.id}
                   column={column}
-                  tasks={
-                    tasksByStatus[column.id] || []
-                  }
+                  tasks={tasksByStatus[column.id] || []}
                   onDeleteTask={handleDeleteTask}
                   onEditTask={openEditModal}
                 />
               ))}
             </div>
-
             <DragOverlay>
-              {activeTask ? (
-                <TaskCard
-                  task={activeTask}
-                  isDragging
-                />
-              ) : null}
+              {activeTask ? <TaskCard task={activeTask} isDragging /> : null}
             </DragOverlay>
           </DndContext>
         </div>
       )}
 
-      {/* ====================================================== */}
-      {/* MODAL */}
-      {/* ====================================================== */}
-
-      <Dialog
-        open={isModalOpen}
-        onOpenChange={setIsModalOpen}
-      >
+      <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>
-              {editingTask
-                ? 'Edit Task'
-                : 'Create Task'}
-            </DialogTitle>
-
-            <DialogDescription>
-              Manage your task information
-            </DialogDescription>
+            <DialogTitle>{editingTask ? 'Edit Task' : 'Create Task'}</DialogTitle>
           </DialogHeader>
-
           <div className="space-y-4 py-4">
             <div>
               <Label>Title</Label>
-
-              <Input
-                value={taskFormData.title}
-                onChange={(e) =>
-                  setTaskFormData({
-                    ...taskFormData,
-                    title: e.target.value,
-                  })
-                }
-              />
+              <Input value={taskFormData.title} onChange={(e) => setTaskFormData({ ...taskFormData, title: e.target.value })} />
             </div>
-
             <div>
               <Label>Description</Label>
-
-              <Textarea
-                value={taskFormData.description}
-                onChange={(e) =>
-                  setTaskFormData({
-                    ...taskFormData,
-                    description: e.target.value,
-                  })
-                }
-              />
+              <Textarea value={taskFormData.description} onChange={(e) => setTaskFormData({ ...taskFormData, description: e.target.value })} />
             </div>
-
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <Label>Priority</Label>
-
-                <Select
-                  value={taskFormData.priority}
-                  onValueChange={(
-                    value: Task['priority']
-                  ) =>
-                    setTaskFormData({
-                      ...taskFormData,
-                      priority: value,
-                    })
-                  }
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-
+                <Select value={taskFormData.priority} onValueChange={(v: Task['priority']) => setTaskFormData({ ...taskFormData, priority: v })}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="low">
-                      Low
-                    </SelectItem>
-
-                    <SelectItem value="medium">
-                      Medium
-                    </SelectItem>
-
-                    <SelectItem value="high">
-                      High
-                    </SelectItem>
-
-                    <SelectItem value="urgent">
-                      Urgent
-                    </SelectItem>
+                    <SelectItem value="low">Low</SelectItem>
+                    <SelectItem value="medium">Medium</SelectItem>
+                    <SelectItem value="high">High</SelectItem>
+                    <SelectItem value="urgent">Urgent</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
-
               <div>
                 <Label>Status</Label>
-
-                <Select
-                  value={taskFormData.status}
-                  onValueChange={(
-                    value: Task['status']
-                  ) =>
-                    setTaskFormData({
-                      ...taskFormData,
-                      status: value,
-                    })
-                  }
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-
+                <Select value={taskFormData.status} onValueChange={(v: Task['status']) => setTaskFormData({ ...taskFormData, status: v })}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    {columns.map((column) => (
-                      <SelectItem
-                        key={column.id}
-                        value={column.id}
-                      >
-                        {column.title}
-                      </SelectItem>
-                    ))}
+                    {columns.map((c) => <SelectItem key={c.id} value={c.id}>{c.title}</SelectItem>)}
                   </SelectContent>
                 </Select>
               </div>
             </div>
           </div>
-
           <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() =>
-                setIsModalOpen(false)
-              }
-            >
-              Cancel
-            </Button>
-
-            <Button
-              onClick={handleSaveTask}
-              disabled={
-                !taskFormData.title.trim()
-              }
-            >
-              Save
-            </Button>
+            <Button variant="outline" onClick={() => setIsModalOpen(false)}>Cancel</Button>
+            <Button onClick={handleSaveTask} disabled={!taskFormData.title.trim()}>Save</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
