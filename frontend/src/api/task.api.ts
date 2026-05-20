@@ -1,8 +1,5 @@
 import { apiClient } from './index';
 import { Task, User, Comment, Attachment, Subtask, Label } from '@/types';
-import { mockService } from '@/services/mock.service';
-
-// TODO: Replace mock calls with actual API endpoints when backend is ready
 
 export interface CreateTaskRequest {
   title: string;
@@ -60,290 +57,244 @@ export interface TaskHistory {
 export const taskApi = {
   /**
    * Get all tasks with optional filters
-   * GET /tasks
+   * GET /api/tasks
    */
   getAll: async (filters?: TaskFilters): Promise<Task[]> => {
-    // TODO: Replace with actual API call
-    // return apiClient.get('/tasks', { params: filters }).then(res => res.data);
-    return mockService.tasks.getAll(filters);
+    return apiClient.get('/tasks', { params: filters }).then(res => res.data);
   },
 
   /**
    * Get single task by ID
-   * GET /tasks/:id
+   * GET /api/tasks/:id
    */
   getById: async (id: string): Promise<Task> => {
-    // TODO: Replace with actual API call
-    // return apiClient.get(`/tasks/${id}`).then(res => res.data);
-    return mockService.tasks.getById(id);
+    return apiClient.get(`/tasks/${id}`).then(res => res.data);
   },
 
   /**
    * Create new task
-   * POST /tasks
+   * POST /api/tasks
    */
   create: async (data: CreateTaskRequest): Promise<Task> => {
-    // TODO: Replace with actual API call
-    // return apiClient.post('/tasks', data).then(res => res.data);
-    const { labelIds, ...rest } = data;
-    return mockService.tasks.create(rest);
+    // Labels array mapped implicitly to match backend schema configuration
+    const payload = { ...data, labels: data.labelIds };
+    delete payload.labelIds;
+    return apiClient.post('/tasks', payload).then(res => res.data.data);
   },
 
   /**
    * Update task
-   * PATCH /tasks/:id
+   * PATCH /api/tasks/:id
    */
   update: async (id: string, data: UpdateTaskRequest): Promise<Task> => {
-    // TODO: Replace with actual API call
-    // return apiClient.patch(`/tasks/${id}`, data).then(res => res.data);
-    const { labelIds, ...rest } = data;
-    return mockService.tasks.update(id, rest);
+    const payload = { ...data, ...(data.labelIds && { labels: data.labelIds }) };
+    delete payload.labelIds;
+    return apiClient.patch(`/tasks/${id}`, payload).then(res => res.data);
   },
 
   /**
    * Delete task
-   * DELETE /tasks/:id
+   * DELETE /api/tasks/:id
    */
   delete: async (id: string): Promise<void> => {
-    // TODO: Replace with actual API call
-    // return apiClient.delete(`/tasks/${id}`);
-    return mockService.tasks.delete(id);
+    return apiClient.delete(`/tasks/${id}`).then(res => res.data);
   },
 
   /**
    * Update task status
-   * PATCH /tasks/:id/status
+   * PATCH /api/tasks/:id/status
    */
-  updateStatus: async (id: string, status: Task['status']): Promise<Task> => {
-    // TODO: Replace with actual API call
-    // return apiClient.patch(`/tasks/${id}/status`, { status }).then(res => res.data);
-    return mockService.tasks.updateStatus(id, status);
-  },
-
+  // updateStatus: async (id: string, status: Task['status']): Promise<Task> => {
+  //   return apiClient.patch(`/tasks/${id}/status`, { status }).then(res => res.data);
+  // },
+// src/api/task.api.ts
+updateStatus: async (id: string, status: Task['status']): Promise<Task> => {
+  console.log('Sending to API:', status); // Should print "in-progress"
+  return apiClient.patch(`/tasks/${id}/status`, { status }).then(res => res.data);
+},
   /**
    * Assign task to user
-   * POST /tasks/:id/assign
+   * POST /api/tasks/:id/assign
    */
   assign: async (taskId: string, userId: string): Promise<Task> => {
-    // TODO: Replace with actual API call
-    // return apiClient.post(`/tasks/${taskId}/assign`, { userId }).then(res => res.data);
-    return mockService.tasks.assign(taskId, userId);
+    return apiClient.post(`/tasks/${taskId}/assign`, { userId }).then(res => res.data);
   },
 
   /**
    * Unassign task
-   * DELETE /tasks/:id/assign
+   * DELETE /api/tasks/:id/assign
    */
   unassign: async (taskId: string): Promise<Task> => {
-    // TODO: Replace with actual API call
-    // return apiClient.delete(`/tasks/${taskId}/assign`).then(res => res.data);
-    return mockService.tasks.unassign(taskId);
+    return apiClient.delete(`/tasks/${taskId}/assign`).then(res => res.data);
   },
 
   /**
    * Bulk update tasks
-   * PATCH /tasks/bulk
+   * PATCH /api/tasks/bulk
    */
   bulkUpdate: async (taskIds: string[], data: UpdateTaskRequest): Promise<Task[]> => {
-    // TODO: Replace with actual API call
-    // return apiClient.patch('/tasks/bulk', { taskIds, ...data }).then(res => res.data);
-    const { labelIds, ...rest } = data;
-    return mockService.tasks.bulkUpdate(taskIds, rest);
+    const payload = { taskIds, ...data, ...(data.labelIds && { labels: data.labelIds }) };
+    delete payload.labelIds;
+    return apiClient.patch('/tasks/bulk', payload).then(res => res.data);
   },
 
   /**
    * Bulk delete tasks
-   * DELETE /tasks/bulk
+   * DELETE /api/tasks/bulk
    */
   bulkDelete: async (taskIds: string[]): Promise<void> => {
-    // TODO: Replace with actual API call
-    // return apiClient.delete('/tasks/bulk', { data: { taskIds } });
-    return mockService.tasks.bulkDelete(taskIds);
+    return apiClient.delete('/tasks/bulk', { data: { taskIds } }).then(res => res.data);
   },
 
   // --- Subtasks ---
 
   /**
    * Add subtask
-   * POST /tasks/:id/subtasks
+   * POST /api/tasks/:id/subtasks
    */
   addSubtask: async (taskId: string, title: string): Promise<Subtask> => {
-    // TODO: Replace with actual API call
-    // return apiClient.post(`/tasks/${taskId}/subtasks`, { title }).then(res => res.data);
-    return mockService.tasks.addSubtask(taskId, title);
+    return apiClient.post(`/tasks/${taskId}/subtasks`, { title }).then(res => res.data);
   },
 
   /**
    * Update subtask
-   * PATCH /tasks/:id/subtasks/:subtaskId
+   * PATCH /api/tasks/:id/subtasks/:subtaskId
    */
   updateSubtask: async (taskId: string, subtaskId: string, data: Partial<Subtask>): Promise<Subtask> => {
-    // TODO: Replace with actual API call
-    // return apiClient.patch(`/tasks/${taskId}/subtasks/${subtaskId}`, data).then(res => res.data);
-    return mockService.tasks.updateSubtask(taskId, subtaskId, data);
+    return apiClient.patch(`/tasks/${taskId}/subtasks/${subtaskId}`, data).then(res => res.data);
   },
 
   /**
    * Delete subtask
-   * DELETE /tasks/:id/subtasks/:subtaskId
+   * DELETE /api/tasks/:id/subtasks/:subtaskId
    */
   deleteSubtask: async (taskId: string, subtaskId: string): Promise<void> => {
-    // TODO: Replace with actual API call
-    // return apiClient.delete(`/tasks/${taskId}/subtasks/${subtaskId}`);
-    return mockService.tasks.deleteSubtask(taskId, subtaskId);
+    return apiClient.delete(`/tasks/${taskId}/subtasks/${subtaskId}`).then(res => res.data);
   },
 
   // --- Comments ---
 
   /**
    * Get task comments
-   * GET /tasks/:id/comments
+   * GET /api/tasks/:id/comments
    */
   getComments: async (taskId: string): Promise<Comment[]> => {
-    // TODO: Replace with actual API call
-    // return apiClient.get(`/tasks/${taskId}/comments`).then(res => res.data);
-    return mockService.tasks.getComments(taskId);
+    return apiClient.get(`/tasks/${taskId}/comments`).then(res => res.data);
   },
 
   /**
    * Add comment
-   * POST /tasks/:id/comments
+   * POST /api/tasks/:id/comments
    */
   addComment: async (taskId: string, content: string, mentions?: string[]): Promise<Comment> => {
-    // TODO: Replace with actual API call
-    // return apiClient.post(`/tasks/${taskId}/comments`, { content, mentions }).then(res => res.data);
-    return mockService.tasks.addComment(taskId, content, mentions);
+    return apiClient.post(`/tasks/${taskId}/comments`, { content, mentions }).then(res => res.data);
   },
 
   /**
    * Update comment
-   * PATCH /tasks/:id/comments/:commentId
+   * PATCH /api/tasks/:id/comments/:commentId
    */
   updateComment: async (taskId: string, commentId: string, content: string): Promise<Comment> => {
-    // TODO: Replace with actual API call
-    // return apiClient.patch(`/tasks/${taskId}/comments/${commentId}`, { content }).then(res => res.data);
-    return mockService.tasks.updateComment(taskId, commentId, content);
+    return apiClient.patch(`/tasks/${taskId}/comments/${commentId}`, { content }).then(res => res.data);
   },
 
   /**
    * Delete comment
-   * DELETE /tasks/:id/comments/:commentId
+   * DELETE /api/tasks/:id/comments/:commentId
    */
   deleteComment: async (taskId: string, commentId: string): Promise<void> => {
-    // TODO: Replace with actual API call
-    // return apiClient.delete(`/tasks/${taskId}/comments/${commentId}`);
-    return mockService.tasks.deleteComment(taskId, commentId);
+    return apiClient.delete(`/tasks/${taskId}/comments/${commentId}`).then(res => res.data);
   },
 
   // --- Attachments ---
 
   /**
    * Get task attachments
-   * GET /tasks/:id/attachments
+   * GET /api/tasks/:id/attachments
    */
   getAttachments: async (taskId: string): Promise<Attachment[]> => {
-    // TODO: Replace with actual API call
-    // return apiClient.get(`/tasks/${taskId}/attachments`).then(res => res.data);
-    return mockService.tasks.getAttachments(taskId);
+    return apiClient.get(`/tasks/${taskId}/attachments`).then(res => res.data);
   },
 
   /**
    * Upload attachment
-   * POST /tasks/:id/attachments
+   * POST /api/tasks/:id/attachments
    */
   uploadAttachment: async (taskId: string, file: File): Promise<Attachment> => {
-    // TODO: Replace with actual API call
-    // const formData = new FormData();
-    // formData.append('file', file);
-    // return apiClient.post(`/tasks/${taskId}/attachments`, formData, {
-    //   headers: { 'Content-Type': 'multipart/form-data' }
-    // }).then(res => res.data);
-    return mockService.tasks.uploadAttachment(taskId, file);
+    const formData = new FormData();
+    formData.append('file', file);
+    return apiClient.post(`/tasks/${taskId}/attachments`, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' }
+    }).then(res => res.data);
   },
 
   /**
    * Delete attachment
-   * DELETE /tasks/:id/attachments/:attachmentId
+   * DELETE /api/tasks/:id/attachments/:attachmentId
    */
   deleteAttachment: async (taskId: string, attachmentId: string): Promise<void> => {
-    // TODO: Replace with actual API call
-    // return apiClient.delete(`/tasks/${taskId}/attachments/${attachmentId}`);
-    return mockService.tasks.deleteAttachment(taskId, attachmentId);
+    return apiClient.delete(`/tasks/${taskId}/attachments/${attachmentId}`).then(res => res.data);
   },
 
   // --- Time Tracking ---
 
   /**
    * Get time entries for task
-   * GET /tasks/:id/time-entries
+   * GET /api/tasks/:id/time-entries
    */
   getTimeEntries: async (taskId: string): Promise<TaskTimeEntry[]> => {
-    // TODO: Replace with actual API call
-    // return apiClient.get(`/tasks/${taskId}/time-entries`).then(res => res.data);
-    return mockService.tasks.getTimeEntries(taskId);
+    return apiClient.get(`/tasks/${taskId}/time-entries`).then(res => res.data);
   },
 
   /**
    * Start time tracking
-   * POST /tasks/:id/time-entries/start
+   * POST /api/tasks/:id/time-entries/start
    */
   startTimer: async (taskId: string): Promise<TaskTimeEntry> => {
-    // TODO: Replace with actual API call
-    // return apiClient.post(`/tasks/${taskId}/time-entries/start`).then(res => res.data);
-    return mockService.tasks.startTimer(taskId);
+    return apiClient.post(`/tasks/${taskId}/time-entries/start`).then(res => res.data);
   },
 
   /**
    * Stop time tracking
-   * POST /tasks/:id/time-entries/stop
+   * POST /api/tasks/:id/time-entries/stop
    */
   stopTimer: async (taskId: string): Promise<TaskTimeEntry> => {
-    // TODO: Replace with actual API call
-    // return apiClient.post(`/tasks/${taskId}/time-entries/stop`).then(res => res.data);
-    return mockService.tasks.stopTimer(taskId);
+    return apiClient.post(`/tasks/${taskId}/time-entries/stop`).then(res => res.data);
   },
 
   /**
    * Add manual time entry
-   * POST /tasks/:id/time-entries
+   * POST /api/tasks/:id/time-entries
    */
   addTimeEntry: async (taskId: string, data: Omit<TaskTimeEntry, 'id' | 'taskId' | 'userId'>): Promise<TaskTimeEntry> => {
-    // TODO: Replace with actual API call
-    // return apiClient.post(`/tasks/${taskId}/time-entries`, data).then(res => res.data);
-    return mockService.tasks.addTimeEntry(taskId, data);
+    return apiClient.post(`/tasks/${taskId}/time-entries`, data).then(res => res.data);
   },
 
   // --- History ---
 
   /**
    * Get task history
-   * GET /tasks/:id/history
+   * GET /api/tasks/:id/history
    */
   getHistory: async (taskId: string): Promise<TaskHistory[]> => {
-    // TODO: Replace with actual API call
-    // return apiClient.get(`/tasks/${taskId}/history`).then(res => res.data);
-    return mockService.tasks.getHistory(taskId);
+    return apiClient.get(`/tasks/${taskId}/history`).then(res => res.data);
   },
 
   // --- Labels ---
 
   /**
    * Get all labels
-   * GET /labels
+   * GET /api/labels
    */
   getLabels: async (): Promise<Label[]> => {
-    // TODO: Replace with actual API call
-    // return apiClient.get('/labels').then(res => res.data);
-    return mockService.tasks.getLabels();
+    return apiClient.get('/labels').then(res => res.data);
   },
 
   /**
    * Create label
-   * POST /labels
+   * POST /api/labels
    */
   createLabel: async (data: Omit<Label, 'id'>): Promise<Label> => {
-    // TODO: Replace with actual API call
-    // return apiClient.post('/labels', data).then(res => res.data);
-    return mockService.tasks.createLabel(data);
+    return apiClient.post('/labels', data).then(res => res.data);
   },
 };

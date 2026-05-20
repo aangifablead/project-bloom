@@ -1,5 +1,6 @@
-import React, { useEffect, useState, useMemo } from 'react';
-import { motion } from 'framer-motion';
+import React, { useEffect, useMemo, useState } from 'react';
+import { useNavigate, useParams } from 'react-router-dom';
+
 import {
   DndContext,
   DragOverlay,
@@ -12,28 +13,34 @@ import {
   DragEndEvent,
   DragOverEvent,
 } from '@dnd-kit/core';
+
 import {
-  arrayMove,
   SortableContext,
-  sortableKeyboardCoordinates,
   useSortable,
   verticalListSortingStrategy,
+  sortableKeyboardCoordinates,
+  arrayMove,
 } from '@dnd-kit/sortable';
+
+import { useDroppable } from '@dnd-kit/core';
 import { CSS } from '@dnd-kit/utilities';
+
 import {
   Plus,
   Search,
   Filter,
-  Calendar,
-  MoreHorizontal,
   GripVertical,
-  CheckSquare,
+  MoreHorizontal,
+  Trash2,
+  Edit,
   Clock,
-  User2,
+  CheckSquare,
+  ArrowLeft,
 } from 'lucide-react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+
 import {
   Dialog,
   DialogContent,
@@ -41,8 +48,8 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from '@/components/ui/dialog';
+
 import {
   Select,
   SelectContent,
@@ -50,12 +57,23 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+
 import { Task } from '@/types';
-import { tasksService, usersService } from '@/services/api';
+import { taskApi } from '@/api/task.api';
+
 import { PriorityBadge } from '@/components/common/Badge';
 import { Avatar } from '@/components/common/Avatar';
+
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 
@@ -67,64 +85,126 @@ const columns: { id: Task['status']; title: string; color: string }[] = [
   { id: 'done', title: 'Done', color: 'bg-success' },
 ];
 
+// ======================================================
+// TASK CARD
+// ======================================================
+
 interface TaskCardProps {
   task: Task;
   isDragging?: boolean;
+  onDelete?: (id: string) => void;
+  onEdit?: (task: Task) => void;
 }
 
-const TaskCard = React.forwardRef<HTMLDivElement, TaskCardProps & { style?: React.CSSProperties; listeners?: any; attributes?: any }>(
-  ({ task, isDragging, style, listeners, attributes, ...props }, ref) => {
+const TaskCard = React.forwardRef<
+  HTMLDivElement,
+  TaskCardProps & {
+    style?: React.CSSProperties;
+    listeners?: any;
+    attributes?: any;
+  }
+>(
+  (
+    {
+      task,
+      style,
+      listeners,
+      attributes,
+      isDragging,
+      onDelete,
+      onEdit,
+      ...props
+    },
+    ref
+  ) => {
+    if (!task) return null;
+
+    const taskId = task.id || task._id;
+
     return (
       <div
         ref={ref}
         style={style}
         {...props}
         className={cn(
-          'bg-card border border-border rounded-lg p-4 cursor-grab active:cursor-grabbing transition-all duration-200',
-          isDragging && 'shadow-lg opacity-90 ring-2 ring-primary'
+          'bg-card border border-border rounded-xl p-4 shadow-sm transition-all duration-200 group',
+          isDragging && 'opacity-40 shadow-xl ring-2 ring-primary/30'
         )}
       >
-        <div className="flex items-start gap-2">
-          <div {...listeners} {...attributes}>
-            <GripVertical className="w-4 h-4 text-muted-foreground flex-shrink-0 mt-0.5" />
+        <div className="flex gap-3">
+          <div
+            {...listeners}
+            {...attributes}
+            className="cursor-grab active:cursor-grabbing mt-1"
+          >
+            <GripVertical className="w-4 h-4 text-muted-foreground" />
           </div>
-          <div className="flex-1 min-w-0">
-            <h4 className="font-medium text-sm text-foreground mb-2 line-clamp-2">
-              {task.title}
-            </h4>
+
+          <div className="flex-1">
+            <div className="flex justify-between items-start gap-2">
+              <h4 className="font-medium text-sm line-clamp-2">
+                {task.title}
+              </h4>
+
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="icon" className="h-7 w-7">
+                    <MoreHorizontal className="w-4 h-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem onClick={() => onEdit?.(task)}>
+                    <Edit className="w-4 h-4 mr-2" />
+                    Edit
+                  </DropdownMenuItem>
+
+                  <DropdownMenuItem
+                    onClick={() => onDelete?.(taskId)}
+                    className="text-destructive"
+                  >
+                    <Trash2 className="w-4 h-4 mr-2" />
+                    Delete
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
+
             {task.description && (
-              <p className="text-xs text-muted-foreground mb-3 line-clamp-2">
+              <p className="text-xs text-muted-foreground mt-2 line-clamp-2">
                 {task.description}
               </p>
             )}
-            <div className="flex items-center gap-2 flex-wrap">
+
+            <div className="flex items-center gap-2 flex-wrap mt-3">
               <PriorityBadge priority={task.priority} />
-              {task.labels.slice(0, 2).map((label) => (
-                <span
-                  key={label.id}
-                  className="inline-flex items-center px-2 py-0.5 rounded text-xs"
-                  style={{ backgroundColor: `${label.color}20`, color: label.color }}
-                >
-                  {label.name}
-                </span>
-              ))}
             </div>
-            <div className="flex items-center justify-between mt-3 pt-3 border-t border-border">
+
+            <div className="flex justify-between items-center mt-4 pt-3 border-t">
               <div className="flex items-center gap-2">
-                {task.assignee && (
-                  <Avatar src={task.assignee.avatar} name={task.assignee.name} size="sm" />
+                {task.assigneeId && (
+                  <Avatar
+                    name={(task.assigneeId as any)?.name || 'User'}
+                    size="sm"
+                  />
                 )}
-                {task.subtasks.length > 0 && (
-                  <span className="flex items-center gap-1 text-xs text-muted-foreground">
+
+                {task.subtasks?.length > 0 && (
+                  <span className="text-xs text-muted-foreground flex items-center gap-1">
                     <CheckSquare className="w-3 h-3" />
-                    {task.subtasks.filter((s) => s.completed).length}/{task.subtasks.length}
+
+                    {
+                      task.subtasks.filter((sub) => sub.completed).length
+                    }/{task.subtasks.length}
                   </span>
                 )}
               </div>
+
               {task.dueDate && (
-                <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                <span className="text-xs text-muted-foreground flex items-center gap-1">
                   <Clock className="w-3 h-3" />
-                  {new Date(task.dueDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+
+                  {new Date(task.dueDate).toLocaleDateString()}
                 </span>
               )}
             </div>
@@ -137,7 +217,21 @@ const TaskCard = React.forwardRef<HTMLDivElement, TaskCardProps & { style?: Reac
 
 TaskCard.displayName = 'TaskCard';
 
-const SortableTaskCard = ({ task }: { task: Task }) => {
+// ======================================================
+// SORTABLE CARD
+// ======================================================
+
+const SortableTaskCard = ({
+  task,
+  onDelete,
+  onEdit,
+}: {
+  task: Task;
+  onDelete: (id: string) => void;
+  onEdit: (task: Task) => void;
+}) => {
+  const taskId = task.id || task._id;
+
   const {
     attributes,
     listeners,
@@ -145,7 +239,9 @@ const SortableTaskCard = ({ task }: { task: Task }) => {
     transform,
     transition,
     isDragging,
-  } = useSortable({ id: task.id });
+  } = useSortable({
+    id: taskId,
+  });
 
   const style = {
     transform: CSS.Transform.toString(transform),
@@ -157,37 +253,68 @@ const SortableTaskCard = ({ task }: { task: Task }) => {
       ref={setNodeRef}
       task={task}
       style={style}
-      attributes={attributes}
       listeners={listeners}
+      attributes={attributes}
       isDragging={isDragging}
+      onDelete={onDelete}
+      onEdit={onEdit}
     />
   );
 };
 
-interface DroppableColumnProps {
+// ======================================================
+// COLUMN
+// ======================================================
+
+const DroppableColumn = ({
+  column,
+  tasks,
+  onDeleteTask,
+  onEditTask,
+}: {
   column: typeof columns[number];
   tasks: Task[];
-}
+  onDeleteTask: (id: string) => void;
+  onEditTask: (task: Task) => void;
+}) => {
+  const { setNodeRef } = useDroppable({
+    id: column.id,
+  });
 
-const DroppableColumn = ({ column, tasks }: DroppableColumnProps) => {
   return (
-    <div className="flex flex-col min-w-[300px] w-[300px]">
-      <div className="flex items-center justify-between mb-4 px-1">
+    <div className="min-w-[320px] w-[320px] flex flex-col">
+      <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-2">
-          <div className={cn('w-3 h-3 rounded-full', column.color)} />
-          <h3 className="font-semibold text-foreground">{column.title}</h3>
-          <span className="text-sm text-muted-foreground bg-muted px-2 py-0.5 rounded-full">
+          <div
+            className={cn(
+              'w-3 h-3 rounded-full',
+              column.color
+            )}
+          />
+
+          <h3 className="font-semibold">{column.title}</h3>
+
+          <span className="text-xs bg-muted px-2 py-1 rounded-full">
             {tasks.length}
           </span>
         </div>
-        <Button variant="ghost" size="icon" className="h-8 w-8">
-          <MoreHorizontal className="w-4 h-4" />
-        </Button>
       </div>
-      <div className="flex-1 space-y-3 min-h-[200px] p-2 rounded-lg bg-muted/30">
-        <SortableContext items={tasks.map((t) => t.id)} strategy={verticalListSortingStrategy}>
+
+      <div
+        ref={setNodeRef}
+        className="bg-muted/30 rounded-xl p-3 min-h-[500px] space-y-3"
+      >
+        <SortableContext
+          items={tasks.map((task) => task.id || task._id)}
+          strategy={verticalListSortingStrategy}
+        >
           {tasks.map((task) => (
-            <SortableTaskCard key={task.id} task={task} />
+            <SortableTaskCard
+              key={task.id || task._id}
+              task={task}
+              onDelete={onDeleteTask}
+              onEdit={onEditTask}
+            />
           ))}
         </SortableContext>
       </div>
@@ -195,18 +322,48 @@ const DroppableColumn = ({ column, tasks }: DroppableColumnProps) => {
   );
 };
 
+// ======================================================
+// MAIN PAGE
+// ======================================================
+
+interface TaskFormData {
+  title: string;
+  description: string;
+  priority: Task['priority'];
+  status: Task['status'];
+  projectId: string;
+}
+
 export const TasksPage: React.FC = () => {
+  const navigate = useNavigate();
+
+  const { projectId } = useParams<{
+    projectId: string;
+  }>();
+
+  const isProjectTasksPage = !!projectId;
+
   const [tasks, setTasks] = useState<Task[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
-  const [activeTask, setActiveTask] = useState<Task | null>(null);
-  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
-  const [newTask, setNewTask] = useState({
-    title: '',
-    description: '',
-    priority: 'medium' as Task['priority'],
-    status: 'backlog' as Task['status'],
-  });
+  const [isLoading, setIsLoading] = useState(true);
+
+  const [activeTask, setActiveTask] =
+    useState<Task | null>(null);
+
+  const [isModalOpen, setIsModalOpen] = useState(false);
+
+  const [editingTask, setEditingTask] =
+    useState<Task | null>(null);
+
+  const [taskFormData, setTaskFormData] =
+    useState<TaskFormData>({
+      title: '',
+      description: '',
+      priority: 'medium',
+      status: 'backlog',
+      projectId: projectId || '',
+    });
+
   const { toast } = useToast();
 
   const sensors = useSensors(
@@ -215,257 +372,572 @@ export const TasksPage: React.FC = () => {
         distance: 8,
       },
     }),
+
     useSensor(KeyboardSensor, {
       coordinateGetter: sortableKeyboardCoordinates,
     })
   );
 
-  useEffect(() => {
-    const fetchTasks = async () => {
-      try {
-        const data = await tasksService.getAll();
-        setTasks(data);
-      } catch (error) {
-        console.error('Failed to fetch tasks:', error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
+  // ======================================================
+  // FETCH TASKS
+  // ======================================================
 
+  const fetchTasks = React.useCallback(async () => {
+    try {
+      setIsLoading(true);
+
+      let data: Task[] = [];
+
+      if (projectId) {
+        data = await taskApi.getAll({
+          projectId,
+        });
+      } else {
+        data = await taskApi.getAll();
+      }
+
+      const normalized = Array.isArray(data)
+        ? data.map((task) => ({
+            ...task,
+            id: task.id || task._id,
+          }))
+        : [];
+
+      setTasks(normalized);
+    } catch (error) {
+      toast({
+        variant: 'destructive',
+        title: 'Failed to fetch tasks',
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  }, [toast, projectId]);
+
+  useEffect(() => {
     fetchTasks();
-  }, []);
+  }, [fetchTasks]);
+
+  // ======================================================
+  // FILTERED TASKS
+  // ======================================================
 
   const filteredTasks = useMemo(() => {
     return tasks.filter((task) =>
-      task.title.toLowerCase().includes(searchQuery.toLowerCase())
+      task.title
+        .toLowerCase()
+        .includes(searchQuery.toLowerCase())
     );
   }, [tasks, searchQuery]);
 
+  // ======================================================
+  // TASKS BY STATUS
+  // ======================================================
+
   const tasksByStatus = useMemo(() => {
     return columns.reduce((acc, column) => {
-      acc[column.id] = filteredTasks.filter((task) => task.status === column.id);
+      acc[column.id] = filteredTasks.filter(
+        (task) => task.status === column.id
+      );
+
       return acc;
     }, {} as Record<Task['status'], Task[]>);
   }, [filteredTasks]);
 
+  // ======================================================
+  // DRAG START
+  // ======================================================
+
   const handleDragStart = (event: DragStartEvent) => {
-    const { active } = event;
-    const task = tasks.find((t) => t.id === active.id);
+    const task = tasks.find(
+      (task) =>
+        String(task.id || task._id) ===
+        String(event.active.id)
+    );
+
     if (task) setActiveTask(task);
   };
 
+  // ======================================================
+  // DRAG OVER
+  // ======================================================
+
   const handleDragOver = (event: DragOverEvent) => {
     const { active, over } = event;
+
     if (!over) return;
 
-    const activeTask = tasks.find((t) => t.id === active.id);
-    const overTask = tasks.find((t) => t.id === over.id);
+    const activeId = String(active.id);
+    const overId = String(over.id);
 
-    if (!activeTask) return;
+    if (activeId === overId) return;
 
-    // If dropping over another task, get its status
-    if (overTask && activeTask.status !== overTask.status) {
+    const activeIndex = tasks.findIndex(
+      (task) => String(task.id || task._id) === activeId
+    );
+
+    const overIndex = tasks.findIndex(
+      (task) => String(task.id || task._id) === overId
+    );
+
+    if (activeIndex !== -1 && overIndex !== -1) {
       setTasks((prev) =>
-        prev.map((t) =>
-          t.id === active.id ? { ...t, status: overTask.status } : t
-        )
+        arrayMove(prev, activeIndex, overIndex)
       );
     }
   };
 
-  const handleDragEnd = async (event: DragEndEvent) => {
+  // ======================================================
+  // DRAG END
+  // ======================================================
+
+  const handleDragEnd = async (
+    event: DragEndEvent
+  ) => {
     const { active, over } = event;
+
     setActiveTask(null);
 
     if (!over) return;
 
-    const activeTask = tasks.find((t) => t.id === active.id);
+    const activeId = String(active.id);
+    const overId = String(over.id);
+
+    const activeTask = tasks.find(
+      (task) =>
+        String(task.id || task._id) === activeId
+    );
+
     if (!activeTask) return;
 
-    // Check if dropped over a column
-    const overColumn = columns.find((c) => c.id === over.id);
-    if (overColumn && activeTask.status !== overColumn.id) {
+    let targetStatus: Task['status'] =
+      activeTask.status;
+
+    const targetColumn = columns.find(
+      (column) => column.id === overId
+    );
+
+    if (targetColumn) {
+      targetStatus = targetColumn.id;
+    }
+
+    const targetTask = tasks.find(
+      (task) =>
+        String(task.id || task._id) === overId
+    );
+
+    if (targetTask) {
+      targetStatus = targetTask.status;
+    }
+
+    const previousTasks = [...tasks];
+
+    setTasks((prev) =>
+      prev.map((task) =>
+        String(task.id || task._id) === activeId
+          ? {
+              ...task,
+              status: targetStatus,
+            }
+          : task
+      )
+    );
+
+    if (activeTask.status !== targetStatus) {
       try {
-        await tasksService.updateStatus(activeTask.id, overColumn.id);
-        setTasks((prev) =>
-          prev.map((t) =>
-            t.id === active.id ? { ...t, status: overColumn.id } : t
-          )
+        await taskApi.updateStatus(
+          activeId,
+          targetStatus
         );
+
         toast({
-          title: 'Task updated',
-          description: `Moved to ${overColumn.title}`,
+          title: 'Task Updated',
+          description: `Moved to ${targetStatus}`,
         });
       } catch (error) {
+        setTasks(previousTasks);
+
         toast({
           variant: 'destructive',
-          title: 'Error',
-          description: 'Failed to update task status',
+          title: 'Update Failed',
         });
       }
     }
   };
 
-  const handleCreateTask = async () => {
+  // ======================================================
+  // SAVE TASK
+  // ======================================================
+
+  const handleSaveTask = async () => {
     try {
-      const task = await tasksService.create(newTask);
-      setTasks([...tasks, task]);
-      setIsCreateModalOpen(false);
-      setNewTask({
-        title: '',
-        description: '',
-        priority: 'medium',
-        status: 'backlog',
-      });
-      toast({
-        title: 'Task created',
-        description: `"${task.title}" has been added to backlog.`,
-      });
+      if (editingTask) {
+        const taskId =
+          editingTask.id || editingTask._id;
+
+        const updated = await taskApi.update(
+          taskId,
+          taskFormData
+        );
+
+        setTasks((prev) =>
+          prev.map((task) =>
+            (task.id || task._id) === taskId
+              ? {
+                  ...updated,
+                  id: taskId,
+                }
+              : task
+          )
+        );
+
+        toast({
+          title: 'Task Updated',
+        });
+      } else {
+        const created = await taskApi.create(
+          taskFormData
+        );
+
+        setTasks((prev) => [
+          ...prev,
+          {
+            ...created,
+            id: created.id || created._id,
+          },
+        ]);
+
+        toast({
+          title: 'Task Created',
+        });
+      }
+
+      setIsModalOpen(false);
     } catch (error) {
       toast({
         variant: 'destructive',
-        title: 'Error',
-        description: 'Failed to create task.',
+        title: 'Save Failed',
       });
     }
   };
 
+  // ======================================================
+  // DELETE TASK
+  // ======================================================
+
+  const handleDeleteTask = async (
+    taskId: string
+  ) => {
+    const rollback = [...tasks];
+
+    setTasks((prev) =>
+      prev.filter(
+        (task) =>
+          (task.id || task._id) !== taskId
+      )
+    );
+
+    try {
+      await taskApi.delete(taskId);
+
+      toast({
+        title: 'Task Deleted',
+      });
+    } catch (error) {
+      setTasks(rollback);
+
+      toast({
+        variant: 'destructive',
+        title: 'Delete Failed',
+      });
+    }
+  };
+
+  // ======================================================
+  // OPEN CREATE MODAL
+  // ======================================================
+
+  const openCreateModal = () => {
+    setEditingTask(null);
+
+    setTaskFormData({
+      title: '',
+      description: '',
+      priority: 'medium',
+      status: 'backlog',
+      projectId: projectId || '',
+    });
+
+    setIsModalOpen(true);
+  };
+
+  // ======================================================
+  // OPEN EDIT MODAL
+  // ======================================================
+
+  const openEditModal = (task: Task) => {
+    setEditingTask(task);
+
+    setTaskFormData({
+      title: task.title,
+      description: task.description || '',
+      priority: task.priority,
+      status: task.status,
+      projectId: projectId || '',
+    });
+
+    setIsModalOpen(true);
+  };
+
   return (
-    <div className="p-6 lg:p-8 h-full flex flex-col">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
-        <div>
-          <h1 className="text-3xl font-bold text-foreground">Tasks</h1>
-          <p className="text-muted-foreground mt-1">
-            Drag and drop to organize your workflow
-          </p>
-        </div>
-        <Dialog open={isCreateModalOpen} onOpenChange={setIsCreateModalOpen}>
-          <DialogTrigger asChild>
-            <Button>
-              <Plus className="w-4 h-4 mr-2" />
-              New Task
+    <div className="p-6 h-full flex flex-col">
+      {/* ====================================================== */}
+      {/* HEADER */}
+      {/* ====================================================== */}
+
+      <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center gap-3">
+          {isProjectTasksPage && (
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={() => navigate(-1)}
+            >
+              <ArrowLeft className="w-4 h-4" />
             </Button>
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Create new task</DialogTitle>
-              <DialogDescription>Add a new task to your backlog.</DialogDescription>
-            </DialogHeader>
-            <div className="space-y-4 py-4">
-              <div className="space-y-2">
-                <Label htmlFor="title">Title</Label>
-                <Input
-                  id="title"
-                  placeholder="Enter task title"
-                  value={newTask.title}
-                  onChange={(e) => setNewTask({ ...newTask, title: e.target.value })}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="description">Description</Label>
-                <Textarea
-                  id="description"
-                  placeholder="Enter task description"
-                  value={newTask.description}
-                  onChange={(e) => setNewTask({ ...newTask, description: e.target.value })}
-                />
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label>Priority</Label>
-                  <Select
-                    value={newTask.priority}
-                    onValueChange={(value: Task['priority']) =>
-                      setNewTask({ ...newTask, priority: value })
-                    }
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="low">Low</SelectItem>
-                      <SelectItem value="medium">Medium</SelectItem>
-                      <SelectItem value="high">High</SelectItem>
-                      <SelectItem value="urgent">Urgent</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2">
-                  <Label>Status</Label>
-                  <Select
-                    value={newTask.status}
-                    onValueChange={(value: Task['status']) =>
-                      setNewTask({ ...newTask, status: value })
-                    }
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {columns.map((col) => (
-                        <SelectItem key={col.id} value={col.id}>
-                          {col.title}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-            </div>
-            <DialogFooter>
-              <Button variant="outline" onClick={() => setIsCreateModalOpen(false)}>
-                Cancel
-              </Button>
-              <Button onClick={handleCreateTask} disabled={!newTask.title.trim()}>
-                Create Task
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
+          )}
+
+          <div>
+            <h1 className="text-3xl font-bold">
+              {isProjectTasksPage
+                ? 'Project Tasks'
+                : 'All Tasks'}
+            </h1>
+
+            <p className="text-muted-foreground mt-1">
+              {isProjectTasksPage
+                ? 'Manage project tasks visually'
+                : 'Manage all workspace tasks'}
+            </p>
+          </div>
+        </div>
+
+        <Button onClick={openCreateModal}>
+          <Plus className="w-4 h-4 mr-2" />
+          New Task
+        </Button>
       </div>
 
-      {/* Filters */}
-      <div className="flex flex-col sm:flex-row gap-4 mb-6">
+      {/* ====================================================== */}
+      {/* SEARCH */}
+      {/* ====================================================== */}
+
+      <div className="flex gap-4 mb-6">
         <div className="relative flex-1 max-w-md">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+
           <Input
-            type="search"
-            placeholder="Search tasks..."
             className="pl-10"
+            placeholder="Search tasks..."
             value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
+            onChange={(e) =>
+              setSearchQuery(e.target.value)
+            }
           />
         </div>
+
         <Button variant="outline">
           <Filter className="w-4 h-4 mr-2" />
           Filters
         </Button>
       </div>
 
-      {/* Kanban Board */}
-      <div className="flex-1 overflow-x-auto pb-4">
-        <DndContext
-          sensors={sensors}
-          collisionDetection={closestCorners}
-          onDragStart={handleDragStart}
-          onDragOver={handleDragOver}
-          onDragEnd={handleDragEnd}
-        >
-          <div className="flex gap-6 min-w-max">
-            {columns.map((column) => (
-              <DroppableColumn
-                key={column.id}
-                column={column}
-                tasks={tasksByStatus[column.id] || []}
+      {/* ====================================================== */}
+      {/* BOARD */}
+      {/* ====================================================== */}
+
+      {isLoading ? (
+        <div className="flex-1 flex items-center justify-center">
+          Loading tasks...
+        </div>
+      ) : (
+        <div className="flex-1 overflow-x-auto pb-4">
+          <DndContext
+            sensors={sensors}
+            collisionDetection={closestCorners}
+            onDragStart={handleDragStart}
+            onDragOver={handleDragOver}
+            onDragEnd={handleDragEnd}
+          >
+            <div className="flex gap-6 min-w-max">
+              {columns.map((column) => (
+                <DroppableColumn
+                  key={column.id}
+                  column={column}
+                  tasks={
+                    tasksByStatus[column.id] || []
+                  }
+                  onDeleteTask={handleDeleteTask}
+                  onEditTask={openEditModal}
+                />
+              ))}
+            </div>
+
+            <DragOverlay>
+              {activeTask ? (
+                <TaskCard
+                  task={activeTask}
+                  isDragging
+                />
+              ) : null}
+            </DragOverlay>
+          </DndContext>
+        </div>
+      )}
+
+      {/* ====================================================== */}
+      {/* MODAL */}
+      {/* ====================================================== */}
+
+      <Dialog
+        open={isModalOpen}
+        onOpenChange={setIsModalOpen}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>
+              {editingTask
+                ? 'Edit Task'
+                : 'Create Task'}
+            </DialogTitle>
+
+            <DialogDescription>
+              Manage your task information
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-4">
+            <div>
+              <Label>Title</Label>
+
+              <Input
+                value={taskFormData.title}
+                onChange={(e) =>
+                  setTaskFormData({
+                    ...taskFormData,
+                    title: e.target.value,
+                  })
+                }
               />
-            ))}
+            </div>
+
+            <div>
+              <Label>Description</Label>
+
+              <Textarea
+                value={taskFormData.description}
+                onChange={(e) =>
+                  setTaskFormData({
+                    ...taskFormData,
+                    description: e.target.value,
+                  })
+                }
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label>Priority</Label>
+
+                <Select
+                  value={taskFormData.priority}
+                  onValueChange={(
+                    value: Task['priority']
+                  ) =>
+                    setTaskFormData({
+                      ...taskFormData,
+                      priority: value,
+                    })
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+
+                  <SelectContent>
+                    <SelectItem value="low">
+                      Low
+                    </SelectItem>
+
+                    <SelectItem value="medium">
+                      Medium
+                    </SelectItem>
+
+                    <SelectItem value="high">
+                      High
+                    </SelectItem>
+
+                    <SelectItem value="urgent">
+                      Urgent
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div>
+                <Label>Status</Label>
+
+                <Select
+                  value={taskFormData.status}
+                  onValueChange={(
+                    value: Task['status']
+                  ) =>
+                    setTaskFormData({
+                      ...taskFormData,
+                      status: value,
+                    })
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+
+                  <SelectContent>
+                    {columns.map((column) => (
+                      <SelectItem
+                        key={column.id}
+                        value={column.id}
+                      >
+                        {column.title}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
           </div>
-          <DragOverlay>
-            {activeTask ? <TaskCard task={activeTask} isDragging /> : null}
-          </DragOverlay>
-        </DndContext>
-      </div>
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() =>
+                setIsModalOpen(false)
+              }
+            >
+              Cancel
+            </Button>
+
+            <Button
+              onClick={handleSaveTask}
+              disabled={
+                !taskFormData.title.trim()
+              }
+            >
+              Save
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

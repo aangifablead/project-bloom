@@ -11,6 +11,7 @@ const { loadEnv } = require('./config/env');
 const authRoutes = require('./routes/auth.routes');
 const userRoutes = require('./routes/userRoutes.js'); 
 const projectRoutes = require('./routes/project.routes.js'); 
+const taskRoutes = require('./routes/task.routes.js');
 // Load environment variables
 loadEnv();
 
@@ -29,7 +30,8 @@ app.use(cookieParser());
 // Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
-app.use('/api/projects', projectRoutes)
+app.use('/api/projects', projectRoutes);
+app.use('/api/tasks', taskRoutes);
 // Health check endpoint
 app.get('/health', (req, res) => {
   res.status(200).json({

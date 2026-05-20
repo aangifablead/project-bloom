@@ -45,12 +45,7 @@ import { useToast } from '@/hooks/use-toast';
 import { EditProjectModal } from '@/components/projects/EditProjectModal';
 import { MilestoneTimeline } from '@/components/projects/MilestoneTimeline';
 
-// Simulation hook if you have a custom hook for permissions. 
-// If your <Can /> component relies on a hook under the hood, use that hook here instead!
-// e.g., const { hasPermission } = useAuth();
 const usePermissionCheck = () => {
-  // Replace this placeholder logic with your application's actual permission utility if needed,
-  // or simply check a global state/context.
   return (permission: string) => true;
 };
 
@@ -58,7 +53,7 @@ export const ProjectDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { toast } = useToast();
-  const hasPermission = usePermissionCheck(); // Check permissions cleanly via JavaScript expressions
+  const hasPermission = usePermissionCheck();
 
   const [project, setProject] = useState<Project | null>(null);
   const [tasks, setTasks] = useState<Task[]>([]);
@@ -95,7 +90,6 @@ export const ProjectDetailPage: React.FC = () => {
     fetchData();
   }, [id]);
 
-  // Clean layout safety measure to prevent pointer locks from unmounted modal dialogues
   useEffect(() => {
     if (!isEditModalOpen && !isDeleteDialogOpen && !isArchiveDialogOpen) {
       document.body.style.pointerEvents = 'auto';
@@ -201,12 +195,11 @@ export const ProjectDetailPage: React.FC = () => {
     done: tasks.filter(t => t.status === 'done').length,
   };
 
-  // Determine which actions should display in the dropdown menu
   const showClone = hasPermission('project:update');
   const showArchive = hasPermission('project:archive');
   const showDelete = hasPermission('project:delete');
   const hasDropdownItems = showClone || showArchive || showDelete;
-console.log(project,'dqwreqwrqwrqwer')
+
   return (
     <div className="p-6 lg:p-8 space-y-6">
       {/* Header Container */}
@@ -327,7 +320,7 @@ console.log(project,'dqwreqwrqwrqwer')
                 <Users className="w-5 h-5 text-amber-500" />
               </div>
               <div>
-                <p className="text-2xl font-bold">{project.members.length}</p>
+                <p className="text-2xl font-bold">{Array.isArray(project.members) ? project.members.length : 0}</p>
                 <p className="text-sm text-muted-foreground">Members</p>
               </div>
             </div>
@@ -377,7 +370,7 @@ console.log(project,'dqwreqwrqwrqwer')
                 <div className="flex items-center justify-between">
                   <span className="text-muted-foreground">Start Date</span>
                   <span className="font-medium">
-                    {new Date(project.startDate).toLocaleDateString()}
+                    {project.startDate ? new Date(project.startDate).toLocaleDateString() : 'N/A'}
                   </span>
                 </div>
                 {project.endDate && (
@@ -391,14 +384,13 @@ console.log(project,'dqwreqwrqwrqwer')
                 <div className="flex items-center justify-between">
                   <span className="text-muted-foreground">Created By</span>
                   <div className="flex items-center gap-2">
-                    {/* <Avatar src={project.createdBy.avatar} name={project.createdBy.name} size="sm" /> */}
-                    <span className="font-medium">{project.createdBy.name}</span>
+                    <span className="font-medium">{project.createdBy?.name || 'Unknown'}</span>
                   </div>
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="text-muted-foreground">Last Updated</span>
                   <span className="font-medium">
-                    {new Date(project.updatedAt).toLocaleDateString()}
+                    {project.updatedAt ? new Date(project.updatedAt).toLocaleDateString() : 'N/A'}
                   </span>
                 </div>
               </CardContent>
@@ -410,7 +402,10 @@ console.log(project,'dqwreqwrqwrqwer')
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0">
               <CardTitle>All Tasks</CardTitle>
-              <Button size="sm" onClick={() => navigate('/tasks')}>
+              <Button
+                size="sm"
+                onClick={() => navigate(`/projects/${project._id || project.id}/tasks`)}
+              >
                 <Plus className="w-4 h-4 mr-2" />
                 Add Task
               </Button>
@@ -422,9 +417,9 @@ console.log(project,'dqwreqwrqwrqwer')
                 </p>
               ) : (
                 <div className="space-y-3">
-                  {tasks.slice(0, 10).map((task) => (
+                  {tasks.slice(0, 10).map((task, index) => (
                     <div
-                      key={task.id}
+                      key={task.id || task._id || index}
                       className="flex items-center justify-between p-3 rounded-lg border border-border hover:bg-muted/50 transition-colors"
                     >
                       <div className="flex items-center gap-3">
@@ -437,7 +432,7 @@ console.log(project,'dqwreqwrqwrqwer')
                         <span className="font-medium">{task.title}</span>
                       </div>
                       {task.assignee && (
-                        <Avatar src={task.assignee.avatar} name={task.assignee.name} size="sm" />
+                        <Avatar src={task.assignee.avatar} name={task.assignee.name || task.assignee.email || 'Team Member'} size="sm" />
                       )}
                     </div>
                   ))}
@@ -449,7 +444,7 @@ console.log(project,'dqwreqwrqwrqwer')
 
         <TabsContent value="milestones">
           <MilestoneTimeline
-            milestones={milestones}
+            milestones={milestones || []}
             projectId={project.id}
             onUpdate={setMilestones}
           />
@@ -460,7 +455,7 @@ console.log(project,'dqwreqwrqwrqwer')
             <CardHeader className="flex flex-row items-center justify-between space-y-0">
               <CardTitle>Team Members</CardTitle>
               {hasPermission('project:manage_members') && (
-                <Button size="sm">
+                <Button size="sm" onClick={() => navigate('/team')}>
                   <Plus className="w-4 h-4 mr-2" />
                   Add Member
                 </Button>
@@ -468,15 +463,15 @@ console.log(project,'dqwreqwrqwrqwer')
             </CardHeader>
             <CardContent>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {project.members.map((member) => (
+                {(project.members || []).map((member, index) => (
                   <div
-                    key={member._id || member.id || member.email} // Fallbacks prevent unhandled crashes
+                    key={member._id || member.id || member.email || index}
                     className="flex items-center gap-3 p-3 rounded-lg border border-border"
                   >
-                    <Avatar src={member.avatar} name={member.name} size="md" />
+                    <Avatar src={member.avatar} name={member.name || member.email || 'Team Member'} size="md" />
                     <div>
-                      <p className="font-medium">{member.name}</p>
-                      <p className="text-sm text-muted-foreground">{member.email}</p>
+                      <p className="font-medium">{member.name || 'Team Member'}</p>
+                      <p className="text-sm text-muted-foreground">{member.email || ''}</p>
                     </div>
                   </div>
                 ))}
@@ -486,7 +481,7 @@ console.log(project,'dqwreqwrqwrqwer')
         </TabsContent>
       </Tabs>
 
-      {/* Edit Modal Component Integration */}
+      {/* Edit Modal */}
       <EditProjectModal
         project={project}
         open={isEditModalOpen}
@@ -494,7 +489,7 @@ console.log(project,'dqwreqwrqwrqwer')
         onUpdate={handleProjectUpdate}
       />
 
-      {/* Delete Confirmation Modal Overlay */}
+      {/* Delete Confirmation */}
       <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
         <AlertDialogContent className="sm:max-w-[425px]">
           <AlertDialogHeader>
@@ -513,7 +508,7 @@ console.log(project,'dqwreqwrqwrqwer')
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* Archive Operations Dialog Pop-up */}
+      {/* Archive Confirmation */}
       <AlertDialog open={isArchiveDialogOpen} onOpenChange={setIsArchiveDialogOpen}>
         <AlertDialogContent className="sm:max-w-[425px]">
           <AlertDialogHeader>

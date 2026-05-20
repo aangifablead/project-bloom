@@ -341,9 +341,9 @@ export const mockService = {
     },
     enable2FA: async () => {
       await delay(600);
-      return { 
-        qrCode: 'data:image/png;base64,mock-qr-code', 
-        secret: 'JBSWY3DPEHPK3PXP' 
+      return {
+        qrCode: 'data:image/png;base64,mock-qr-code',
+        secret: 'JBSWY3DPEHPK3PXP'
       };
     },
     disable2FA: async (code: string) => {
@@ -365,7 +365,7 @@ export const mockService = {
         projects = projects.filter(p => p.status === filters.status);
       }
       if (filters?.search) {
-        projects = projects.filter(p => 
+        projects = projects.filter(p =>
           p.name.toLowerCase().includes(filters.search!.toLowerCase())
         );
       }
@@ -528,7 +528,7 @@ export const mockService = {
         tasks = tasks.filter(t => t.priority === filters.priority);
       }
       if (filters?.search) {
-        tasks = tasks.filter(t => 
+        tasks = tasks.filter(t =>
           t.title.toLowerCase().includes(filters.search!.toLowerCase())
         );
       }
@@ -630,9 +630,9 @@ export const mockService = {
       if (taskIndex !== -1) {
         const subtaskIndex = mockTasks[taskIndex].subtasks.findIndex(s => s.id === subtaskId);
         if (subtaskIndex !== -1) {
-          mockTasks[taskIndex].subtasks[subtaskIndex] = { 
-            ...mockTasks[taskIndex].subtasks[subtaskIndex], 
-            ...data 
+          mockTasks[taskIndex].subtasks[subtaskIndex] = {
+            ...mockTasks[taskIndex].subtasks[subtaskIndex],
+            ...data
           };
           return mockTasks[taskIndex].subtasks[subtaskIndex];
         }

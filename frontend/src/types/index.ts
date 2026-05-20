@@ -11,6 +11,7 @@ export interface User {
 }
 export interface Project {
   id: string;
+  _id?: string; 
   name: string;
   description: string;
   status: 'active' | 'completed' | 'on-hold' | 'archived';
@@ -28,6 +29,8 @@ export interface Project {
 
 export interface Task {
   id: string;
+  _id: string;   
+  assigneeId:string;     
   title: string;
   description?: string;
   status: 'backlog' | 'todo' | 'in-progress' | 'review' | 'done';

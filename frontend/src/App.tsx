@@ -66,9 +66,14 @@ const AppContent = () => {
         {/* Dashboard routes */}
         <Route element={<ProtectedRoute><DashboardLayout /></ProtectedRoute>}>
           <Route path="/dashboard" element={<DashboardPage />} />
+
           <Route path="/projects" element={<ProjectsPage />} />
           <Route path="/projects/:id" element={<ProjectDetailPage />} />
+
+          {/* TASK ROUTES */}
           <Route path="/tasks" element={<TasksPage />} />
+          <Route path="/projects/:projectId/tasks" element={<TasksPage />} />
+
           <Route path="/team" element={<TeamPage />} />
           <Route path="/settings" element={<SettingsPage />} />
           <Route path="/settings/:tab" element={<SettingsPage />} />

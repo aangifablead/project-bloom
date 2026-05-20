@@ -2,7 +2,7 @@ import { cn } from '@/lib/utils';
 
 interface AvatarProps {
   src?: string;
-  name: string;
+  name?: string; // Change to optional because runtime data can be unpredictable
   size?: 'sm' | 'md' | 'lg' | 'xl';
   className?: string;
 }
@@ -15,12 +15,13 @@ const sizeClasses = {
 };
 
 export const Avatar = ({ src, name, size = 'md', className }: AvatarProps) => {
-  // Defensive fallbacks to ensure split() always receives a valid string string
+  // Defensive fallbacks to ensure split() always receives a valid string
   const validName = typeof name === 'string' ? name.trim() : '';
 
   const initials = validName
     ? validName
         .split(' ')
+        .filter(Boolean) // Cleans out extra spaces between names
         .map((n) => n[0])
         .join('')
         .toUpperCase()
@@ -37,6 +38,10 @@ export const Avatar = ({ src, name, size = 'md', className }: AvatarProps) => {
           sizeClasses[size],
           className
         )}
+        onError={(e) => {
+          // If the image link breaks or 404s, remove the image source to gracefully fall back to initials
+          (e.target as HTMLImageElement).style.display = 'none';
+        }}
       />
     );
   }
@@ -55,35 +60,45 @@ export const Avatar = ({ src, name, size = 'md', className }: AvatarProps) => {
 };
 
 interface AvatarGroupProps {
-  users: { name: string; avatar?: string }[];
+  // Broaden the type definitions to match your backend reality
+  users?: { name?: string; id?: string; _id?: string; email?: string; avatar?: string }[];
   max?: number;
   size?: 'sm' | 'md' | 'lg';
 }
 
-export const AvatarGroup = ({ users, max = 4, size = 'md' }: AvatarGroupProps) => {
-  const visibleUsers = users.slice(0, max);
-  const remainingCount = users.length - max;
+export const AvatarGroup = ({ users = [], max = 4, size = 'md' }: AvatarGroupProps) => {
+  // Fallback to empty array if users prop is null or undefined
+  const safeUsers = Array.isArray(users) ? users : [];
+  const visibleUsers = safeUsers.slice(0, max);
+  const remainingCount = Math.max(0, safeUsers.length - max);
 
   return (
-    <div className="flex -space-x-2">
-      {visibleUsers.map((user, index) => (
-        <Avatar
-          key={index}
-          src={user.avatar}
-          name={user.name}
-          size={size}
-        />
-      ))}
+    <div className="flex -space-x-2-reverse flex-row-reverse justify-end items-center">
+      {/* Reversing direction visually helps stack avatars nicely over one another if using CSS space utilities */}
       {remainingCount > 0 && (
         <div
           className={cn(
-            'rounded-full bg-muted text-muted-foreground font-semibold flex items-center justify-center ring-2 ring-background',
+            'rounded-full bg-muted text-muted-foreground font-semibold flex items-center justify-center ring-2 ring-background z-10',
             sizeClasses[size]
           )}
         >
           +{remainingCount}
         </div>
       )}
+      
+      {[...visibleUsers].reverse().map((user, index) => {
+        // Fallback cascade to make sure a name is ALWAYS found
+        const safeName = user.name || user.email || 'Team Member';
+        
+        return (
+          <Avatar
+            key={user.id || user._id || user.email || index}
+            src={user.avatar}
+            name={safeName}
+            size={size}
+          />
+        );
+      })}
     </div>
   );
 };
