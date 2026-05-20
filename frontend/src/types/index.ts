@@ -8,6 +8,7 @@ export interface User {
   role: 'admin' | 'manager' | 'member';
   isTwoFactorEnabled?: boolean; 
   createdAt: string;
+  status?: 'active' | 'pending'; 
 }
 export interface Project {
   id: string;

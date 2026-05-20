@@ -2,7 +2,6 @@ const express = require('express');
 const cors = require('cors');
 const morgan = require('morgan');
 const cookieParser = require('cookie-parser');
-
 // Import middleware
 const { errorMiddleware, notFoundHandler } = require('./middlewares/error.middleware');
 const { loadEnv } = require('./config/env');
@@ -12,6 +11,7 @@ const authRoutes = require('./routes/auth.routes');
 const userRoutes = require('./routes/userRoutes.js'); 
 const projectRoutes = require('./routes/project.routes.js'); 
 const taskRoutes = require('./routes/task.routes.js');
+const teamRoutes = require('./routes/team.routes');
 // Load environment variables
 loadEnv();
 
@@ -32,6 +32,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/projects', projectRoutes);
 app.use('/api/tasks', taskRoutes);
+app.use('/api/team', teamRoutes);
 // Health check endpoint
 app.get('/health', (req, res) => {
   res.status(200).json({

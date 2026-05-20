@@ -30,6 +30,7 @@ import { AuditLogsPage } from "@/pages/admin/AuditLogsPage";
 
 import NotFound from "./pages/NotFound";
 import { ProtectedRoute } from "./pages/auth/ProtectedRoute";
+import { AcceptInvitePage } from "./pages/team/AcceptInvitePage";
 
 const queryClient = new QueryClient();
 
@@ -75,6 +76,8 @@ const AppContent = () => {
           <Route path="/projects/:projectId/tasks" element={<TasksPage />} />
 
           <Route path="/team" element={<TeamPage />} />
+          <Route path="/accept-invite/:token" element={<AcceptInvitePage />}/>
+
           <Route path="/settings" element={<SettingsPage />} />
           <Route path="/settings/:tab" element={<SettingsPage />} />
           <Route path="/notifications" element={<NotificationsPage />} />

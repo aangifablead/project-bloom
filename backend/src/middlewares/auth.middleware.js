@@ -88,8 +88,32 @@ const handleRefreshToken = async (req, res, next) => {
   next();
 };
 
+/**
+ * Authorization middleware to check user roles
+ * Renamed to match the name 'restrictTo' used in your routes
+ */
+const restrictTo = (...roles) => {
+  return (req, res, next) => {
+    // Check if user exists (from previous 'authenticate' middleware)
+    if (!req.user) {
+      return res.status(401).json({ status: 'error', message: 'Authentication required' });
+    }
+
+    // Check if the user's role is in the allowed roles array
+    if (roles.length && !roles.includes(req.user.role)) {
+      return res.status(403).json({ 
+        status: 'error', 
+        message: 'You do not have permission to perform this action' 
+      });
+    }
+
+    next();
+  };
+};
+
 module.exports = {
   authenticate,
+  restrictTo,
   protect: authenticate,      // Aliased for route architectures using .protect
   requireAdmin: authorize,     // Aliased for admin route definitions
   handleRefreshToken

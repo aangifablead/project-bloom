@@ -1,65 +1,88 @@
-require('dotenv').config(); 
+require('dotenv').config();
+
 const nodemailer = require('nodemailer');
 const { logger } = require('../config/logger');
 
-// Create a transporter
-// For Gmail: use service: 'gmail' and an "App Password"
-// services/email.service.js
 const transporter = nodemailer.createTransport({
-    host: 'smtp.gmail.com',
-    port: 465,
-    secure: true, // Use SSL for port 465
-    auth: {
-        user: process.env.EMAIL_USER,
-        pass: process.env.EMAIL_PASS, // fergmhjubrkgojzn
-    },
-    tls: {
-        // Essential for localhost to bypass certificate handshake errors
-        rejectUnauthorized: false
-    }
+  host: 'smtp.gmail.com',
+  port: 465,
+  secure: true,
+
+  auth: {
+    user: process.env.EMAIL_USER,
+    pass: process.env.EMAIL_PASS,
+  },
+
+  tls: {
+    rejectUnauthorized: false,
+  },
 });
 
-// ADD THIS: Test the connection on server startup
-transporter.verify((error, success) => {
-    if (error) {
-        console.log("SMTP Connection Error Details:", error);
-    } else {
-        console.log("Mailing server is ready!");
-    }
+transporter.verify((error) => {
+  if (error) {
+    console.log(
+      'SMTP Connection Error:',
+      error
+    );
+  } else {
+    console.log(
+      '✅ Mailing server is ready!'
+    );
+  }
 });
-/**
- * Send Password Reset Email
- */
-const sendResetPasswordEmail = async (to, token) => {
+const sendResetPasswordEmail = async (
+  to,
+  token
+) => {
   const resetUrl = `http://localhost:8080/reset-password?token=${token}`;
-  
+
   const mailOptions = {
-    from: '"Project Bloom" <noreply@yourapp.com>',
-    to: to,
-    subject: 'Password Reset Request - Project Bloom',
+    from: `"Project Bloom" <${process.env.EMAIL_USER}>`,
+
+    to,
+
+    subject:
+      'Password Reset Request - Project Bloom',
+
     html: `
-      <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #e0e0e0; border-radius: 10px; overflow: hidden;">
-        <div style="background-color: #4f46e5; padding: 20px; text-align: center;">
-          <h1 style="color: white; margin: 0; font-size: 24px;">Project Bloom</h1>
-        </div>
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: auto; border: 1px solid #eee; border-radius: 10px; overflow: hidden;">
         
-        <div style="padding: 30px; line-height: 1.6; color: #333;">
-          <h2 style="color: #1f2937;">Reset Your Password</h2>
-          <p>Hello,</p>
-          <p>We received a request to reset the password for your Project Bloom account. Click the button below to choose a new password. <strong>This link will expire in 1 hour.</strong></p>
-          
-          <div style="text-align: center; margin: 30px 0;">
-            <a href="${resetUrl}" style="background-color: #4f46e5; color: white; padding: 12px 25px; text-decoration: none; border-radius: 5px; font-weight: bold; display: inline-block;">
+        <div style="background: #4f46e5; padding: 20px; text-align: center;">
+          <h1 style="color: white; margin: 0;">
+            Project Bloom
+          </h1>
+        </div>
+
+        <div style="padding: 30px;">
+          <h2>Reset Your Password</h2>
+
+          <p>
+            We received a request to reset your password.
+          </p>
+
+          <p>
+            Click the button below to continue.
+          </p>
+
+          <div style="text-align:center; margin: 30px 0;">
+            <a
+              href="${resetUrl}"
+              style="
+                background:#4f46e5;
+                color:white;
+                padding:12px 24px;
+                text-decoration:none;
+                border-radius:6px;
+                display:inline-block;
+                font-weight:bold;
+              "
+            >
               Reset Password
             </a>
           </div>
-          
-          <p style="font-size: 0.9em; color: #6b7280;">If you did not request a password reset, please ignore this email or contact support if you have concerns.</p>
-          
-          <hr style="border: 0; border-top: 1px solid #eee; margin: 20px 0;">
-          
-          <p style="font-size: 0.8em; color: #9ca3af; text-align: center;">
-            &copy; 2026 Project Bloom. All rights reserved.
+
+          <p style="color:#666; font-size:14px;">
+            This link will expire in 1 hour.
           </p>
         </div>
       </div>
@@ -68,11 +91,177 @@ const sendResetPasswordEmail = async (to, token) => {
 
   try {
     await transporter.sendMail(mailOptions);
-    logger.info(`Password reset email sent to: ${to}`);
+
+    logger.info(
+      `Password reset email sent to ${to}`
+    );
   } catch (error) {
-    logger.error('Email sending failed:', error);
-    throw new Error('Email could not be sent');
+    logger.error(
+      'Reset password email failed:',
+      error
+    );
+
+    throw new Error(
+      'Email could not be sent'
+    );
   }
 };
 
-module.exports = { sendResetPasswordEmail };
+// ======================================================
+// TEAM INVITE EMAIL
+// ======================================================
+
+const sendInviteEmail = async ({
+  name,
+  email,
+  role,
+  inviteToken,
+}) => {
+  const inviteUrl = `http://localhost:8080/accept-invite/${inviteToken}`;
+
+  const mailOptions = {
+    from: `"Project Bloom" <${process.env.EMAIL_USER}>`,
+
+    to: email,
+
+    subject:
+      'You have been invited to Project Bloom',
+
+    html: `
+      <div style="
+        font-family: Arial, sans-serif;
+        max-width: 600px;
+        margin: auto;
+        border: 1px solid #e5e7eb;
+        border-radius: 12px;
+        overflow: hidden;
+      ">
+
+        <!-- HEADER -->
+        <div style="
+          background: #4f46e5;
+          padding: 24px;
+          text-align: center;
+        ">
+          <h1 style="
+            color: white;
+            margin: 0;
+            font-size: 28px;
+          ">
+            Project Bloom
+          </h1>
+        </div>
+
+        <!-- BODY -->
+        <div style="padding: 32px;">
+
+          <h2 style="
+            margin-top: 0;
+            color: #111827;
+          ">
+            Team Invitation
+          </h2>
+
+          <p style="
+            color: #374151;
+            line-height: 1.6;
+          ">
+            Hello <strong>${name}</strong>,
+          </p>
+
+          <p style="
+            color: #374151;
+            line-height: 1.6;
+          ">
+            You have been invited to join
+            <strong>Project Bloom</strong>
+            as a
+            <strong>${role}</strong>.
+          </p>
+
+          <p style="
+            color: #374151;
+            line-height: 1.6;
+          ">
+            Click the button below to accept your invitation.
+          </p>
+
+          <!-- BUTTON -->
+          <div style="
+            text-align: center;
+            margin: 40px 0;
+          ">
+            <a
+              href="${inviteUrl}"
+              style="
+                background: #4f46e5;
+                color: white;
+                padding: 14px 28px;
+                border-radius: 8px;
+                text-decoration: none;
+                font-weight: 600;
+                display: inline-block;
+              "
+            >
+              Accept Invitation
+            </a>
+          </div>
+
+          <p style="
+            color: #6b7280;
+            font-size: 14px;
+            line-height: 1.6;
+          ">
+            If the button does not work,
+            copy and paste this URL into your browser:
+          </p>
+
+          <p style="
+            word-break: break-all;
+            font-size: 14px;
+            color: #4f46e5;
+          ">
+            ${inviteUrl}
+          </p>
+
+          <hr style="
+            margin: 30px 0;
+            border: none;
+            border-top: 1px solid #e5e7eb;
+          " />
+
+          <p style="
+            font-size: 12px;
+            color: #9ca3af;
+            text-align: center;
+          ">
+            © 2026 Project Bloom.
+            All rights reserved.
+          </p>
+        </div>
+      </div>
+    `,
+  };
+
+  try {
+    await transporter.sendMail(mailOptions);
+
+    logger.info(
+      `Invite email sent to ${email}`
+    );
+  } catch (error) {
+    logger.error(
+      'Invite email failed:',
+      error
+    );
+
+    throw new Error(
+      'Invite email could not be sent'
+    );
+  }
+};
+
+module.exports = {
+  sendResetPasswordEmail,
+  sendInviteEmail,
+};
