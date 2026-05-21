@@ -319,32 +319,58 @@ exports.createProjectFromTemplate = async (req, res) => {
 
   return res.status(201).json(project);
 };
+/* =========================================
+   9. MILESTONE CONTROLLER FIXES
+========================================= */
 
 exports.getProjectMilestones = async (req, res) => {
-  const data = await Milestone.find({ projectId: req.params.id });
-  return res.json(data);
+  try {
+    // Always add .exec() for clean promise handling
+    const data = await Milestone.find({ projectId: req.params.id }).exec();
+    return res.json(data);
+  } catch (err) {
+    return res.status(500).json({ error: err.message });
+  }
 };
 
 exports.createMilestone = async (req, res) => {
-  const data = await Milestone.create({
-    ...req.body,
-    projectId: req.params.id
-  });
-
-  return res.status(201).json(data);
+  try {
+    const data = await Milestone.create({
+      ...req.body,
+      projectId: req.params.id // Ensure this matches your route :id
+    });
+    return res.status(201).json(data);
+  } catch (err) {
+    return res.status(400).json({ error: err.message });
+  }
 };
 
 exports.updateMilestone = async (req, res) => {
-  const data = await Milestone.findByIdAndUpdate(
-    req.params.milestoneId,
-    req.body,
-    { new: true }
-  );
+  try {
+    // 1. Add 'await' 
+    // 2. Add '{ new: true }' to return the updated object
+    // 3. Add .exec() to ensure the query is executed
+    const data = await Milestone.findByIdAndUpdate(
+      req.params.milestoneId,
+      req.body,
+      { new: true, runValidators: true }
+    ).exec();
 
-  return res.json(data);
+    if (!data) {
+      return res.status(404).json({ message: "Milestone not found" });
+    }
+
+    return res.json(data);
+  } catch (err) {
+    return res.status(500).json({ error: err.message });
+  }
 };
 
 exports.deleteMilestone = async (req, res) => {
-  await Milestone.findByIdAndDelete(req.params.milestoneId);
-  return res.json({ success: true });
+  try {
+    await Milestone.findByIdAndDelete(req.params.milestoneId).exec();
+    return res.json({ success: true });
+  } catch (err) {
+    return res.status(500).json({ error: err.message });
+  }
 };

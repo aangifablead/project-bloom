@@ -46,6 +46,7 @@ import { useToast } from '@/hooks/use-toast';
 import { EditProjectModal } from '@/components/projects/EditProjectModal';
 import { MilestoneTimeline } from '@/components/projects/MilestoneTimeline';
 import { AddMemberModal } from '@/pages/projects/AddMemberModal';
+import { CreateMilestoneModal } from '@/pages/projects/CreateMilestoneModal';
 
 const usePermissionCheck = () => {
   return (permission: string) => true;
@@ -65,6 +66,8 @@ export const ProjectDetailPage: React.FC = () => {
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isArchiveDialogOpen, setIsArchiveDialogOpen] = useState(false);
   const [isMemberModalOpen, setIsMemberModalOpen] = useState(false);
+  const [isMilestoneModalOpen, setIsMilestoneModalOpen] = useState(false);
+
 
   const fetchProjectData = useCallback(async () => {
     if (!id) return;
@@ -94,10 +97,10 @@ export const ProjectDetailPage: React.FC = () => {
   }, [fetchProjectData]);
 
   useEffect(() => {
-    if (!isEditModalOpen && !isDeleteDialogOpen && !isArchiveDialogOpen) {
+    if (!isEditModalOpen && !isDeleteDialogOpen && !isArchiveDialogOpen && !isMilestoneModalOpen) {
       document.body.style.pointerEvents = 'auto';
     }
-  }, [isEditModalOpen, isDeleteDialogOpen, isArchiveDialogOpen]);
+  }, [isEditModalOpen, isDeleteDialogOpen, isArchiveDialogOpen, isMilestoneModalOpen]);
 
   const handleDelete = async () => {
     if (!id) return;
@@ -116,6 +119,9 @@ export const ProjectDetailPage: React.FC = () => {
       });
     }
   };
+  const totalTasks = tasks.length;
+  const completedTasks = tasks.filter(t => t.status === 'done').length;
+  const progressValue = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
 
   const handleArchive = async () => {
     if (!id || !project) return;
@@ -158,7 +164,6 @@ export const ProjectDetailPage: React.FC = () => {
     }
   };
   const handleRemoveMember = async (member: any) => {
-    // Check for 'id' directly (as per your JSON), then fallback to nested 'user.id' or 'user._id'
     const userId = member.id || member.user?.id || member.user?._id;
 
     if (!userId) {
@@ -291,8 +296,8 @@ export const ProjectDetailPage: React.FC = () => {
           )}
         </div>
       </div>
-
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        {/* Progress */}
         <Card>
           <CardContent className="p-4">
             <div className="flex items-center gap-3">
@@ -300,14 +305,17 @@ export const ProjectDetailPage: React.FC = () => {
                 <CheckCircle2 className="w-5 h-5 text-primary" />
               </div>
               <div>
-                <p className="text-2xl font-bold">{project.progress}%</p>
+                {/* Now showing the dynamic progressValue */}
+                <p className="text-2xl font-bold">{progressValue}%</p>
                 <p className="text-sm text-muted-foreground">Progress</p>
               </div>
             </div>
-            <Progress value={project.progress} className="mt-3 h-2" />
+            {/* Dynamic progress bar value */}
+            <Progress value={progressValue} className="mt-3 h-2" />
           </CardContent>
         </Card>
 
+        {/* Total Tasks (Calculated from state) */}
         <Card>
           <CardContent className="p-4">
             <div className="flex items-center gap-3">
@@ -315,13 +323,14 @@ export const ProjectDetailPage: React.FC = () => {
                 <Flag className="w-5 h-5 text-blue-500" />
               </div>
               <div>
-                <p className="text-2xl font-bold">{project.tasksCount}</p>
+                <p className="text-2xl font-bold">{tasks.length}</p>
                 <p className="text-sm text-muted-foreground">Total Tasks</p>
               </div>
             </div>
           </CardContent>
         </Card>
 
+        {/* Completed Tasks (Calculated from state) */}
         <Card>
           <CardContent className="p-4">
             <div className="flex items-center gap-3">
@@ -329,13 +338,16 @@ export const ProjectDetailPage: React.FC = () => {
                 <CheckCircle2 className="w-5 h-5 text-emerald-500" />
               </div>
               <div>
-                <p className="text-2xl font-bold">{project.completedTasksCount}</p>
+                <p className="text-2xl font-bold">
+                  {tasks.filter((t) => t.status === 'done').length}
+                </p>
                 <p className="text-sm text-muted-foreground">Completed</p>
               </div>
             </div>
           </CardContent>
         </Card>
 
+        {/* Members */}
         <Card>
           <CardContent className="p-4">
             <div className="flex items-center gap-3">
@@ -343,7 +355,9 @@ export const ProjectDetailPage: React.FC = () => {
                 <Users className="w-5 h-5 text-amber-500" />
               </div>
               <div>
-                <p className="text-2xl font-bold">{Array.isArray(project.members) ? project.members.length : 0}</p>
+                <p className="text-2xl font-bold">
+                  {Array.isArray(project.members) ? project.members.length : 0}
+                </p>
                 <p className="text-sm text-muted-foreground">Members</p>
               </div>
             </div>
@@ -463,11 +477,21 @@ export const ProjectDetailPage: React.FC = () => {
         </TabsContent>
 
         <TabsContent value="milestones">
-          <MilestoneTimeline
-            milestones={milestones || []}
-            projectId={project.id}
-            onUpdate={setMilestones}
-          />
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0">
+              <CardTitle>Milestones</CardTitle>
+              <Button size="sm" onClick={() => setIsMilestoneModalOpen(true)}>
+                <Plus className="w-4 h-4 mr-2" /> Add Milestone
+              </Button>
+            </CardHeader>
+            <CardContent>
+              <MilestoneTimeline
+                milestones={milestones || []}
+                projectId={project.id}
+                onUpdate={setMilestones}
+              />
+            </CardContent>
+          </Card>
         </TabsContent>
 
         <TabsContent value="members">
@@ -485,7 +509,7 @@ export const ProjectDetailPage: React.FC = () => {
                 {project.members && project.members.length > 0 ? (
                   project.members.map((member: any, index: number) => (
                     <div
-                      key={member.user?._id || member._id || index} // Use optional chaining here
+                      key={member.user?._id || member._id || index}
                       className="flex items-center justify-between p-4 rounded-lg border border-border"
                     >
                       <div className="flex items-center gap-3">
@@ -498,12 +522,11 @@ export const ProjectDetailPage: React.FC = () => {
                         </div>
                       </div>
 
-                      {/* ADD DELETE BUTTON HERE */}
                       <Button
                         variant="ghost"
                         size="sm"
                         className="text-destructive"
-                        onClick={() => handleRemoveMember(member)} // Pass the whole object
+                        onClick={() => handleRemoveMember(member)}
                       >
                         <Trash2 className="w-4 h-4" />
                       </Button>
@@ -523,6 +546,16 @@ export const ProjectDetailPage: React.FC = () => {
         open={isEditModalOpen}
         onOpenChange={setIsEditModalOpen}
         onUpdate={handleProjectUpdate}
+      />
+
+      <CreateMilestoneModal
+        projectId={project._id || project.id}
+        open={isMilestoneModalOpen}
+        onClose={() => setIsMilestoneModalOpen(false)}
+        onSuccess={() => {
+          setIsMilestoneModalOpen(false);
+          fetchProjectData();
+        }}
       />
 
       <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
@@ -571,7 +604,7 @@ export const ProjectDetailPage: React.FC = () => {
           onClose={() => setIsMemberModalOpen(false)}
           onSuccess={() => {
             setIsMemberModalOpen(false);
-            fetchProjectData(); // This refreshes the UI after adding a member
+            fetchProjectData();
           }}
         />
       )}
