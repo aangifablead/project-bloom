@@ -2,9 +2,6 @@ const { verifyToken } = require('../services/token.service.js');
 const User = require('../models/user.model.js');
 const { logger } = require('../config/logger.js');
 
-/**
- * Authentication middleware to verify JWT token
- */
 const authenticate = async (req, res, next) => {
   try {
     const authHeader = req.headers.authorization;
@@ -44,7 +41,7 @@ const authenticate = async (req, res, next) => {
 
     // Attach user information to request object
     req.user = user;
-    req.userId = user._id;
+    req.userId = user._id.toString();
     req.userRole = user.role;
 
     next();
@@ -57,9 +54,6 @@ const authenticate = async (req, res, next) => {
   }
 };
 
-/**
- * Authorization middleware to check user roles
- */
 const authorize = (roles = []) => {
   return (req, res, next) => {
     if (!req.user) {
@@ -80,18 +74,11 @@ const authorize = (roles = []) => {
   };
 };
 
-/**
- * Future-ready middleware for refresh token handling
- */
 const handleRefreshToken = async (req, res, next) => {
   logger.info('Refresh token middleware - placeholder for future implementation');
   next();
 };
 
-/**
- * Authorization middleware to check user roles
- * Renamed to match the name 'restrictTo' used in your routes
- */
 const restrictTo = (...roles) => {
   return (req, res, next) => {
     // Check if user exists (from previous 'authenticate' middleware)
@@ -114,7 +101,7 @@ const restrictTo = (...roles) => {
 module.exports = {
   authenticate,
   restrictTo,
-  protect: authenticate,      // Aliased for route architectures using .protect
-  requireAdmin: authorize,     // Aliased for admin route definitions
+  protect: authenticate,     
+  requireAdmin: authorize,   
   handleRefreshToken
 };

@@ -1,46 +1,97 @@
 const Task = require('../models/task.model');
 const { Project } = require('../models/project.model');
 const Timesheet = require('../models/timesheet.model');
-const Activity = require('../models/activity.model');
-const mongoose = require('mongoose');
+const TaskHistory = require('../models/taskHistory.model');
+
+/**
+ * =========================
+ * HELPERS
+ * =========================
+ */
+const buildMessage = (a) => {
+  const user = a.userId?.name || 'System';
+  const task = a.taskId?.title || a.taskTitle || 'task';
+
+  const format = (v) => (v === null || v === undefined ? 'empty' : v);
+
+  if (a.action === 'created') {
+    return `${user} created task "${task}"`;
+  }
+
+  if (a.action === 'deleted') {
+    return `${user} deleted task "${task}"`;
+  }
+
+  if (a.action === 'status_changed') {
+    return `${user} changed "${task}" from ${format(a.oldValue)} → ${format(a.newValue)}`;
+  }
+
+  if (a.action === 'updated' && a.field === 'title') {
+    return `${user} renamed "${format(a.oldValue)}" → "${format(a.newValue)}"`;
+  }
+
+  return `${user} updated "${task}"`;
+};
 
 /**
  * GET /api/analytics/dashboard
  */
 exports.getDashboardStats = async (req, res) => {
-  const [totalTasks, completedTasks, totalProjects] = await Promise.all([
-    Task.countDocuments(),
-    Task.countDocuments({ status: 'done' }),
-    Project.countDocuments()
-  ]);
+  try {
+    const [totalTasks, completedTasks, totalProjects] = await Promise.all([
+      Task.countDocuments(),
+      Task.countDocuments({ status: 'done' }),
+      Project.countDocuments(),
+    ]);
 
-  const overdueTasks = await Task.countDocuments({
-    dueDate: { $lt: new Date() },
-    status: { $ne: 'done' },
-  });
+    const tasks = await Task.find({}, 'status dueDate');
 
-  // Aggregate tasks by status
-  const tasksByStatus = await Task.aggregate([
-    { $group: { _id: "$status", count: { $sum: 1 } } },
-    { $project: { _id: 0, status: "$_id", count: 1 } }
-  ]);
+    const overdueTasks = tasks.filter(
+      (t) => t.dueDate && t.dueDate < new Date() && t.status !== 'done'
+    ).length;
 
-  // Aggregate tasks by priority
-  const tasksByPriority = await Task.aggregate([
-    { $group: { _id: "$priority", count: { $sum: 1 } } },
-    { $project: { _id: 0, priority: "$_id", count: 1 } }
-  ]);
+    const tasksByStatus = await Task.aggregate([
+      { $group: { _id: '$status', count: { $sum: 1 } } },
+      { $project: { _id: 0, status: '$_id', count: 1 } },
+    ]);
 
-  res.json({
-    totalTasks,
-    completedTasks,
-    overdueTasks,
-    totalProjects,
-    completionRate: totalTasks ? (completedTasks / totalTasks) * 100 : 0,
-    tasksByStatus,
-    tasksByPriority,
-    recentActivity: [] // Add logic to fetch latest logs
-  });
+    const tasksByPriority = await Task.aggregate([
+      { $group: { _id: '$priority', count: { $sum: 1 } } },
+      { $project: { _id: 0, priority: '$_id', count: 1 } },
+    ]);
+
+    const recentActivityRaw = await TaskHistory.find()
+      .sort({ createdAt: -1 })
+      .limit(10)
+      .populate('userId', 'name avatar')
+      .populate('taskId', 'title')
+      .lean();
+
+    const recentActivity = recentActivityRaw.map((a) => ({
+      id: a._id,
+      taskId: a.taskId,
+      userId: a.userId,
+      action: a.action,
+      field: a.field,
+      oldValue: a.oldValue,
+      newValue: a.newValue,
+      createdAt: a.createdAt,
+      message: buildMessage(a),
+    }));
+
+    res.json({
+      totalTasks,
+      completedTasks,
+      overdueTasks,
+      totalProjects,
+      completionRate: totalTasks ? (completedTasks / totalTasks) * 100 : 0,
+      tasksByStatus,
+      tasksByPriority,
+      recentActivity,
+    });
+  } catch (err) {
+    res.status(500).json({ message: 'Dashboard error', error: err.message });
+  }
 };
 
 /**
@@ -53,14 +104,15 @@ exports.getProjectAnalytics = async (req, res) => {
   const tasks = await Task.find({ projectId: id });
 
   const totalTasks = tasks.length;
-  const completedTasks = tasks.filter(t => t.status === 'done').length;
+  const completedTasks = tasks.filter((t) => t.status === 'done').length;
+
   const overdueTasks = tasks.filter(
-    t => t.dueDate < new Date() && t.status !== 'done'
+    (t) => t.dueDate && t.dueDate < new Date() && t.status !== 'done'
   ).length;
 
   res.json({
     projectId: id,
-    projectName: project?.name,
+    projectName: project?.name || '',
     totalTasks,
     completedTasks,
     overdueTasks,
@@ -81,7 +133,7 @@ exports.getAllProjectsAnalytics = async (req, res) => {
     projects.map(async (p) => {
       const tasks = await Task.find({ projectId: p._id });
 
-      const completed = tasks.filter(t => t.status === 'done').length;
+      const completed = tasks.filter((t) => t.status === 'done').length;
 
       return {
         projectId: p._id,
@@ -89,7 +141,7 @@ exports.getAllProjectsAnalytics = async (req, res) => {
         totalTasks: tasks.length,
         completedTasks: completed,
         overdueTasks: tasks.filter(
-          t => t.dueDate < new Date() && t.status !== 'done'
+          (t) => t.dueDate && t.dueDate < new Date() && t.status !== 'done'
         ).length,
         completionRate: tasks.length ? (completed / tasks.length) * 100 : 0,
         averageTaskDuration: 0,
@@ -109,7 +161,7 @@ exports.getTeamProductivity = async (req, res) => {
   const users = await Task.aggregate([
     {
       $group: {
-        _id: '$assignedTo',
+        _id: '$assigneeId',
         tasksCompleted: {
           $sum: { $cond: [{ $eq: ['$status', 'done'] }, 1, 0] },
         },
@@ -117,23 +169,22 @@ exports.getTeamProductivity = async (req, res) => {
     },
   ]);
 
-  res.json(users.map(u => ({
-    userId: u._id,
-    userName: 'User',
-    tasksCompleted: u.tasksCompleted,
-    hoursLogged: 0,
-    averageCompletionTime: 0,
-    onTimeDeliveryRate: 0,
-  })));
+  res.json(
+    users.map((u) => ({
+      userId: u._id,
+      userName: 'User',
+      tasksCompleted: u.tasksCompleted,
+      hoursLogged: 0,
+      averageCompletionTime: 0,
+      onTimeDeliveryRate: 0,
+    }))
+  );
 };
 
 /**
  * GET /api/analytics/tasks/trends
  */
 exports.getTaskTrends = async (req, res) => {
-  const { period } = req.query;
-
-  // simplified mock aggregation
   res.json([
     { date: '2026-01-01', completed: 10, created: 15 },
     { date: '2026-01-02', completed: 12, created: 18 },
@@ -209,13 +260,35 @@ exports.rejectTimesheet = async (req, res) => {
  * GET /api/analytics/activity
  */
 exports.getRecentActivity = async (req, res) => {
-  const limit = parseInt(req.query.limit) || 20;
+  try {
+    const limit = parseInt(req.query.limit) || 20;
 
-  const activity = await Activity.find()
-    .sort({ createdAt: -1 })
-    .limit(limit);
+    const activity = await TaskHistory.find()
+      .sort({ createdAt: -1 })
+      .limit(limit)
+      .populate('userId', 'name avatar')
+      .populate('taskId', 'title')
+      .lean();
 
-  res.json(activity);
+    const enriched = activity.map((a) => ({
+      id: a._id,
+      taskId: a.taskId,
+      userId: a.userId,
+      action: a.action,
+      field: a.field,
+      oldValue: a.oldValue,
+      newValue: a.newValue,
+      createdAt: a.createdAt,
+      message: buildMessage(a),
+    }));
+
+    res.json(enriched);
+  } catch (err) {
+    res.status(500).json({
+      message: 'Activity error',
+      error: err.message,
+    });
+  }
 };
 
 /**
@@ -229,5 +302,9 @@ exports.exportReport = async (req, res) => {
     return res.send('id,name,value\n1,test,100');
   }
 
-  res.json({ message: 'Export generated', type, format });
+  res.json({
+    message: 'Export generated',
+    type,
+    format,
+  });
 };

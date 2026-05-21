@@ -1,37 +1,15 @@
 import React, { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
-import {
-  FolderKanban,
-  CheckSquare,
-  CheckCircle2,
-  AlertTriangle,
-  TrendingUp,
-  ArrowUpRight,
-  ArrowDownRight,
-} from 'lucide-react';
-
+import { FolderKanban, CheckSquare, CheckCircle2, AlertTriangle, TrendingUp, ArrowUpRight, ArrowDownRight } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { DashboardStats } from '@/types';
 import { analyticsApi } from '@/api/analytics.api';
 import { StatCardSkeleton } from '@/components/common/Skeleton';
 import { Avatar } from '@/components/common/Avatar';
 import { useAuth } from '@/context/AuthContext';
-
-import {
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-  PieChart,
-  Pie,
-  Cell,
-} from 'recharts';
+import {BarChart,Bar,XAxis,YAxis,CartesianGrid,Tooltip,ResponsiveContainer,PieChart,Pie,Cell} from 'recharts';
 
 /* -------------------- COLOR MAP (FIXED TAILWIND ISSUE) -------------------- */
-
 const colorMap = {
   primary: {
     bg: 'bg-primary/10',
@@ -102,25 +80,29 @@ export const DashboardPage: React.FC = () => {
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const { user } = useAuth();
-
+  console.log(stats, 'statsstats')
   /* -------------------- FETCH DATA -------------------- */
 
   useEffect(() => {
-    const fetchStats = async () => {
+    const fetchData = async () => {
+      setIsLoading(true);
       try {
-        const data = await analyticsApi.getDashboardStats();
-        setStats(data);
+        const [statsData, activityData] = await Promise.all([
+          analyticsApi.getDashboardStats(),
+          analyticsApi.getRecentActivity(5) // Fetch the last 5
+        ]);
+
+        setStats({ ...statsData, recentActivity: activityData });
       } catch (error) {
-        console.error('Failed to fetch dashboard stats:', error);
+        console.error('Failed to fetch dashboard data:', error);
       } finally {
         setIsLoading(false);
       }
     };
 
-    fetchStats();
+    fetchData();
   }, []);
 
-  /* -------------------- TIME FORMAT -------------------- */
 
   const getTimeAgo = (dateString: string) => {
     const date = new Date(dateString);
@@ -165,57 +147,56 @@ export const DashboardPage: React.FC = () => {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
         {isLoading
           ? Array.from({ length: 4 }).map((_, i) => (
-              <StatCardSkeleton key={i} />
-            ))
+            <StatCardSkeleton key={i} />
+          ))
           : statCards.map((stat, index) => {
-              const color = colorMap[stat.color];
+            const color = colorMap[stat.color];
 
-              return (
-                <motion.div
-                  key={stat.key}
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: index * 0.1 }}
-                >
-                  <Card>
-                    <CardContent className="p-6">
+            return (
+              <motion.div
+                key={stat.key}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: index * 0.1 }}
+              >
+                <Card>
+                  <CardContent className="p-6">
 
-                      {/* TITLE + ICON */}
-                      <div className="flex items-center justify-between mb-4">
-                        <span className="text-sm font-medium text-muted-foreground">
-                          {stat.title}
-                        </span>
+                    {/* TITLE + ICON */}
+                    <div className="flex items-center justify-between mb-4">
+                      <span className="text-sm font-medium text-muted-foreground">
+                        {stat.title}
+                      </span>
 
-                        <div className={`p-2 rounded-lg ${color.bg}`}>
-                          <stat.icon className={`w-5 h-5 ${color.text}`} />
-                        </div>
+                      <div className={`p-2 rounded-lg ${color.bg}`}>
+                        <stat.icon className={`w-5 h-5 ${color.text}`} />
+                      </div>
+                    </div>
+
+                    {/* VALUE + TREND */}
+                    <div className="flex items-end justify-between">
+                      <div className="text-3xl font-bold text-foreground">
+                        {stats?.[stat.key] ?? 0}
                       </div>
 
-                      {/* VALUE + TREND */}
-                      <div className="flex items-end justify-between">
-                        <div className="text-3xl font-bold text-foreground">
-                          {stats?.[stat.key] ?? 0}
-                        </div>
-
-                        <div
-                          className={`flex items-center text-sm ${
-                            stat.trendUp ? 'text-green-500' : 'text-yellow-500'
+                      <div
+                        className={`flex items-center text-sm ${stat.trendUp ? 'text-green-500' : 'text-yellow-500'
                           }`}
-                        >
-                          {stat.trendUp ? (
-                            <ArrowUpRight className="w-4 h-4" />
-                          ) : (
-                            <ArrowDownRight className="w-4 h-4" />
-                          )}
-                          {stat.trend}
-                        </div>
+                      >
+                        {stat.trendUp ? (
+                          <ArrowUpRight className="w-4 h-4" />
+                        ) : (
+                          <ArrowDownRight className="w-4 h-4" />
+                        )}
+                        {stat.trend}
                       </div>
+                    </div>
 
-                    </CardContent>
-                  </Card>
-                </motion.div>
-              );
-            })}
+                  </CardContent>
+                </Card>
+              </motion.div>
+            );
+          })}
       </div>
 
       {/* ---------------- CHARTS ---------------- */}
@@ -304,36 +285,37 @@ export const DashboardPage: React.FC = () => {
             <div className="space-y-6">
 
               {stats?.recentActivity?.length ? (
-                stats.recentActivity.map((activity) => (
-                  <div key={activity.id} className="flex items-start gap-4">
-                    <Avatar
-                      src={activity.user.avatar}
-                      name={activity.user.name}
-                      size="md"
-                    />
+                stats.recentActivity.map((activity) => {
+                  return (
+                    <div
+                      key={activity._id || activity.id}
+                      className="flex items-start gap-4"
+                    >
+                      <Avatar
+                        src={activity.userId?.avatar || ''}
+                        name={activity.userId?.name || 'System'}
+                        size="md"
+                      />
 
-                    <div>
-                      <p className="text-sm">
-                        <span className="font-medium">
-                          {activity.user.name}
-                        </span>{' '}
-                        <span className="text-muted-foreground">
-                          {activity.description}
+                      <div className="flex-1">
+                        <p className="text-sm text-muted-foreground leading-relaxed">
+                          {activity.message}
+                        </p>
+
+                        <span className="text-xs text-muted-foreground/70">
+                          {new Date(
+                            activity.createdAt
+                          ).toLocaleString()}
                         </span>
-                      </p>
-
-                      <p className="text-xs text-muted-foreground mt-1">
-                        {getTimeAgo(activity.createdAt)}
-                      </p>
+                      </div>
                     </div>
-                  </div>
-                ))
+                  );
+                })
               ) : (
                 <p className="text-sm text-muted-foreground">
                   No recent activity
                 </p>
               )}
-
             </div>
           </CardContent>
         </Card>

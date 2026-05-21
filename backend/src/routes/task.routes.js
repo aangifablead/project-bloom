@@ -1,69 +1,86 @@
-// routes/task.routes.js
 const express = require('express');
 const router = express.Router();
+
 const taskController = require('../controllers/task.controller');
+const { authenticate } = require('../middlewares/auth.middleware');
 
-// Optional: Import an authentication middleware if required
-// const { protect } = require('../middlewares/auth.middleware');
-// router.use(protect); 
+// =========================================
+// TASKS
+// =========================================
+router.get('/', authenticate, taskController.getAllTasks);
 
-// --- Labels (Not bound to individual tasks) ---
-router.route('/labels')
-  .get(taskController.getLabels)
-  .post(taskController.createLabel);
+router.get('/:id', authenticate, taskController.getTaskById);
 
-// --- Bulk Operations (Placed before /:id) ---
-router.route('/bulk')
-  .patch(taskController.bulkUpdateTasks)
-  .delete(taskController.bulkDeleteTasks);
+router.post('/', authenticate, taskController.createTask);
 
-// --- Base Task Operations ---
-router.route('/')
-  .get(taskController.getAllTasks)
-  .post(taskController.createTask);
+router.patch('/:id', authenticate, taskController.updateTask);
 
-router.route('/:id')
-  .get(taskController.getTaskById)
-  .patch(taskController.updateTask)
-  .delete(taskController.deleteTask);
+router.patch('/:id/status', authenticate, taskController.updateStatus);
 
-// --- Status & Assignment ---
-router.patch('/:id/status', taskController.updateStatus);
+router.delete('/:id', authenticate, taskController.deleteTask);
 
-router.route('/:id/assign')
-  .post(taskController.assignTask)
-  .delete(taskController.unassignTask);
+// =========================================
+// BULK
+// =========================================
+router.patch('/bulk/update', authenticate, taskController.bulkUpdateTasks);
 
-// --- Subtasks ---
-router.post('/:id/subtasks', taskController.addSubtask);
-router.patch('/:id/subtasks/:subtaskId', taskController.updateSubtask);
-router.delete('/:id/subtasks/:subtaskId', taskController.deleteSubtask);
+router.delete('/bulk/delete', authenticate, taskController.bulkDeleteTasks);
 
-// --- Comments ---
-router.route('/:id/comments')
-  .get(taskController.getComments)
-  .post(taskController.addComment);
+// =========================================
+// ASSIGNMENT
+// =========================================
+router.patch('/:id/assign', authenticate, taskController.assignTask);
 
-router.route('/:id/comments/:commentId')
-  .patch(taskController.updateComment)
-  .delete(taskController.deleteComment);
+router.patch('/:id/unassign', authenticate, taskController.unassignTask);
 
-// --- Attachments ---
-router.route('/:id/attachments')
-  .get(taskController.getAttachments)
-  .post(taskController.uploadAttachment); // Add file uploading middleware here if needed
+// =========================================
+// HISTORY
+// =========================================
+router.get('/:id/history', authenticate, taskController.getHistory);
 
-router.delete('/:id/attachments/:attachmentId', taskController.deleteAttachment);
+// =========================================
+// LABELS
+// =========================================
+router.get('/labels/all', authenticate, taskController.getLabels);
 
-// --- Time Tracking ---
-router.route('/:id/time-entries')
-  .get(taskController.getTimeEntries)
-  .post(taskController.addTimeEntry);
+// =========================================
+// SUBTASKS
+// =========================================
+router.post('/:id/subtasks', authenticate, taskController.addSubtask);
 
-router.post('/:id/time-entries/start', taskController.startTimer);
-router.post('/:id/time-entries/stop', taskController.stopTimer);
+router.patch('/:id/subtasks/:subtaskId', authenticate, taskController.updateSubtask);
 
-// --- History ---
-router.get('/:id/history', taskController.getHistory);
+router.delete('/:id/subtasks/:subtaskId', authenticate, taskController.deleteSubtask);
+
+// =========================================
+// COMMENTS
+// =========================================
+router.get('/:id/comments', authenticate, taskController.getComments);
+
+router.post('/:id/comments', authenticate, taskController.addComment);
+
+router.patch('/:id/comments/:commentId', authenticate, taskController.updateComment);
+
+router.delete('/:id/comments/:commentId', authenticate, taskController.deleteComment);
+
+// =========================================
+// ATTACHMENTS
+// =========================================
+router.get('/:id/attachments', authenticate, taskController.getAttachments);
+
+router.post('/:id/attachments', authenticate, taskController.uploadAttachment);
+
+router.delete('/:id/attachments/:attachmentId', authenticate, taskController.deleteAttachment);
+
+// =========================================
+// TIME TRACKING
+// =========================================
+router.get('/:id/time-entries', authenticate, taskController.getTimeEntries);
+
+router.post('/:id/time-entries', authenticate, taskController.addTimeEntry);
+
+router.post('/:id/start-timer', authenticate, taskController.startTimer);
+
+router.post('/:id/stop-timer', authenticate, taskController.stopTimer);
 
 module.exports = router;

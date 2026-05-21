@@ -183,11 +183,10 @@ const TaskCard = React.forwardRef<
 
             <div className="flex justify-between items-center mt-4 pt-3 border-t">
               <div className="flex items-center gap-2">
-                {task.assigneeId && (
-                  <Avatar
-                    name={(task.assigneeId as any)?.name || 'User'}
-                    size="sm"
-                  />
+                {task.assigneeId?.name ? (
+                  <Avatar name={task.assigneeId.name} />
+                ) : (
+                  <span>Unassigned</span>
                 )}
 
                 {task.subtasks?.length > 0 && (
@@ -390,9 +389,9 @@ export const TasksPage: React.FC = () => {
 
       const normalized = Array.isArray(data)
         ? data.map((task) => ({
-            ...task,
-            id: task.id || task._id,
-          }))
+          ...task,
+          id: task.id || task._id,
+        }))
         : [];
 
       setTasks(normalized);
@@ -682,10 +681,10 @@ export const TasksPage: React.FC = () => {
             <DialogTitle>Select Project</DialogTitle>
             <DialogDescription>Search and select a project to create your task.</DialogDescription>
           </DialogHeader>
-          <Input 
-            placeholder="Search projects..." 
-            value={projectSearch} 
-            onChange={(e) => setProjectSearch(e.target.value)} 
+          <Input
+            placeholder="Search projects..."
+            value={projectSearch}
+            onChange={(e) => setProjectSearch(e.target.value)}
           />
           <div className="max-h-[300px] overflow-auto space-y-2 mt-2">
             {filteredProjects.map((p) => (

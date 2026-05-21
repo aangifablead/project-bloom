@@ -6,13 +6,13 @@ export interface User {
   email: string;
   avatar?: string;
   role: 'admin' | 'manager' | 'member';
-  isTwoFactorEnabled?: boolean; 
+  isTwoFactorEnabled?: boolean;
   createdAt: string;
-  status?: 'active' | 'pending'; 
+  status?: 'active' | 'pending';
 }
 export interface Project {
   id: string;
-  _id?: string; 
+  _id?: string;
   name: string;
   description: string;
   status: 'active' | 'completed' | 'on-hold' | 'archived';
@@ -29,16 +29,15 @@ export interface Project {
 }
 
 export interface Task {
-  id: string;
-  _id: string;   
-  assigneeId:string;     
+  id: string; // Keep this for frontend convenience
+  _id: string; // The database primary key
   title: string;
   description?: string;
   status: 'backlog' | 'todo' | 'in-progress' | 'review' | 'done';
   priority: 'low' | 'medium' | 'high' | 'urgent';
   projectId: string;
-  assignee?: User;
-  reporter: User;
+  assigneeId?: User | null;
+  reporter?: User;
   dueDate?: string;
   labels: Label[];
   subtasks: Subtask[];
@@ -47,7 +46,6 @@ export interface Task {
   createdAt: string;
   updatedAt: string;
 }
-
 export interface Subtask {
   id: string;
   title: string;
@@ -89,15 +87,29 @@ export interface Notification {
 }
 
 export interface Activity {
-  id: string;
-  type: 'task_created' | 'task_completed' | 'comment_added' | 'member_added' | 'project_created';
-  description: string;
-  user: User;
-  projectId?: string;
-  taskId?: string;
-  createdAt: string;
-}
+  _id?: string;
+  id?: string;
 
+  action: string;
+  message?: string;
+
+  field?: string;
+  oldValue?: string;
+  newValue?: string;
+
+  createdAt: string;
+
+  taskId: {
+    _id: string;
+    title: string;
+  };
+
+  userId?: {
+    _id: string;
+    name: string;
+    avatar?: string;
+  };
+}
 export interface AuthState {
   user: User | null;
   token: string | null;
@@ -106,11 +118,12 @@ export interface AuthState {
 }
 
 export interface DashboardStats {
-  totalProjects: number;
   totalTasks: number;
   completedTasks: number;
   overdueTasks: number;
+  totalProjects: number;
+  completionRate: number;
   tasksByStatus: { status: string; count: number }[];
   tasksByPriority: { priority: string; count: number }[];
-  recentActivity: Activity[];
+  recentActivity: Activity[]; // Now both are perfectly synchronized
 }

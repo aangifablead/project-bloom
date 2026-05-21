@@ -1,39 +1,74 @@
 const mongoose = require('mongoose');
 
-const taskHistorySchema = new mongoose.Schema({
-  taskId: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'Task',
-    required: true
+const taskHistorySchema = new mongoose.Schema(
+  {
+    taskId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Task',
+      required: true,
+    },
+
+    taskTitle: {
+      type: String,
+      default: '',
+    },
+
+    userId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+      default: null,
+    },
+
+    action: {
+      type: String,
+      required: true,
+    },
+
+    field: {
+      type: String,
+      default: null,
+    },
+
+    oldValue: mongoose.Schema.Types.Mixed,
+
+    newValue: mongoose.Schema.Types.Mixed,
   },
-  userId: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'User',
-    required: false
-  },
-  action: {
-    type: String,
-    required: true,
-    enum: ['created', 'updated', 'deleted', 'status_changed', 'assigned', 'commented', 'attachment_added']
-  },
-  field: {
-    type: String,
-    default: null
-  },
-  oldValue: {
-    type: mongoose.Schema.Types.Mixed,
-    default: null
-  },
-  newValue: {
-    type: mongoose.Schema.Types.Mixed,
-    default: null
+  {
+    timestamps: true,
+
+    toJSON: {
+      virtuals: true,
+    },
+
+    toObject: {
+      virtuals: true,
+    },
   }
-}, { 
-  timestamps: true 
+);
+
+// ======================================
+// VIRTUAL MESSAGE
+// ======================================
+taskHistorySchema.virtual('message').get(function () {
+  // Fix: Show name if user exists, otherwise fallback to "System" or "Anonymous"
+  const userName = this.userId?.name || 'System'; 
+  const taskTitle = this.taskTitle || 'task';
+
+  // Only show changes if they are NOT null or undefined
+  const formatVal = (val) => (val === null || val === undefined ? 'empty' : val);
+
+  if (this.action === 'status_changed') {
+    return `${userName} changed "${taskTitle}" from ${formatVal(this.oldValue)} → ${formatVal(this.newValue)}`;
+  }
+
+  if (this.action === 'updated' && this.field === 'title') {
+    return `${userName} renamed "${formatVal(this.oldValue)}" to "${formatVal(this.newValue)}"`;
+  }
+
+  return `${userName} updated "${taskTitle}"`;
 });
 
-// Optimization index for quick lookup queries inside the task history sidebar tab
-taskHistorySchema.index({ taskId: 1, createdAt: -1 });
-
-const TaskHistory = mongoose.model('TaskHistory', taskHistorySchema);
-module.exports = TaskHistory;
+module.exports = mongoose.model(
+  'TaskHistory',
+  taskHistorySchema
+);
