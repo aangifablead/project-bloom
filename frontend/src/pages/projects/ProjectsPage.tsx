@@ -23,7 +23,7 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
-  DropdownMenuTrigger,
+  DropdownMenuTrigger,  
 } from '@/components/ui/dropdown-menu';
 import {
   Dialog,
@@ -67,12 +67,12 @@ export const ProjectsPage: React.FC = () => {
     color: projectColors[0],
   });
   const { toast } = useToast();
-useEffect(() => {
+  useEffect(() => {
     const fetchProjects = async () => {
       try {
         setIsLoading(true);
         const response = await projectApi.getAll(); // ⚡ Calling API
-        
+
         // 🟢 Defend against object payloads by picking out the array
         if (Array.isArray(response)) {
           setProjects(response);
@@ -258,9 +258,9 @@ useEffect(() => {
           action={
             !searchQuery
               ? {
-                  label: 'Create Project',
-                  onClick: () => setIsCreateModalOpen(true),
-                }
+                label: 'Create Project',
+                onClick: () => setIsCreateModalOpen(true),
+              }
               : undefined
           }
         />

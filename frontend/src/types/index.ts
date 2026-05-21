@@ -33,10 +33,11 @@ export interface Task {
   _id: string; // The database primary key
   title: string;
   description?: string;
+  assigneeId?: string | null; 
+  assignee?: User | null;
   status: 'backlog' | 'todo' | 'in-progress' | 'review' | 'done';
   priority: 'low' | 'medium' | 'high' | 'urgent';
   projectId: string;
-  assigneeId?: User | null;
   reporter?: User;
   dueDate?: string;
   labels: Label[];

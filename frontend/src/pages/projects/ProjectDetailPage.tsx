@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
@@ -14,6 +14,7 @@ import {
   Copy,
   Flag,
   CheckCircle2,
+  X,
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -44,6 +45,7 @@ import { CardSkeleton } from '@/components/common/Skeleton';
 import { useToast } from '@/hooks/use-toast';
 import { EditProjectModal } from '@/components/projects/EditProjectModal';
 import { MilestoneTimeline } from '@/components/projects/MilestoneTimeline';
+import { AddMemberModal } from '@/pages/projects/AddMemberModal';
 
 const usePermissionCheck = () => {
   return (permission: string) => true;
@@ -62,33 +64,34 @@ export const ProjectDetailPage: React.FC = () => {
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isArchiveDialogOpen, setIsArchiveDialogOpen] = useState(false);
+  const [isMemberModalOpen, setIsMemberModalOpen] = useState(false);
+
+  const fetchProjectData = useCallback(async () => {
+    if (!id) return;
+    try {
+      const [projectData, tasksData, milestonesData] = await Promise.all([
+        projectApi.getById(id),
+        taskApi.getAll({ projectId: id }),
+        projectApi.getMilestones(id),
+      ]);
+      setProject(projectData);
+      setTasks(tasksData);
+      setMilestones(milestonesData);
+    } catch (error) {
+      console.error('Failed to fetch project:', error);
+      toast({
+        variant: 'destructive',
+        title: 'Error',
+        description: 'Failed to load project details.',
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  }, [id, toast]);
 
   useEffect(() => {
-    const fetchData = async () => {
-      if (!id) return;
-      try {
-        const [projectData, tasksData, milestonesData] = await Promise.all([
-          projectApi.getById(id),
-          taskApi.getAll({ projectId: id }),
-          projectApi.getMilestones(id),
-        ]);
-        setProject(projectData);
-        setTasks(tasksData);
-        setMilestones(milestonesData);
-      } catch (error) {
-        console.error('Failed to fetch project:', error);
-        toast({
-          variant: 'destructive',
-          title: 'Error',
-          description: 'Failed to load project details.',
-        });
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    fetchData();
-  }, [id]);
+    fetchProjectData();
+  }, [fetchProjectData]);
 
   useEffect(() => {
     if (!isEditModalOpen && !isDeleteDialogOpen && !isArchiveDialogOpen) {
@@ -154,6 +157,29 @@ export const ProjectDetailPage: React.FC = () => {
       });
     }
   };
+  const handleRemoveMember = async (member: any) => {
+    // Check for 'id' directly (as per your JSON), then fallback to nested 'user.id' or 'user._id'
+    const userId = member.id || member.user?.id || member.user?._id;
+
+    if (!userId) {
+      console.error("DEBUG: Member object structure is missing expected ID fields:", member);
+      toast({
+        variant: 'destructive',
+        title: 'Error',
+        description: 'Could not identify user ID.'
+      });
+      return;
+    }
+
+    try {
+      await projectApi.removeMember(id!, userId);
+      toast({ title: 'Success', description: 'Member removed.' });
+      fetchProjectData();
+    } catch (error) {
+      console.error(error);
+      toast({ variant: 'destructive', title: 'Error', description: 'Failed to remove member.' });
+    }
+  };
 
   const handleProjectUpdate = (updatedProject: Project) => {
     setProject(updatedProject);
@@ -202,7 +228,6 @@ export const ProjectDetailPage: React.FC = () => {
 
   return (
     <div className="p-6 lg:p-8 space-y-6">
-      {/* Header Container */}
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-6 border-b border-border pb-6">
         <div className="flex items-start gap-4 min-w-0 flex-1">
           <Button variant="ghost" size="icon" onClick={() => navigate('/projects')} className="mt-1 shrink-0">
@@ -221,7 +246,6 @@ export const ProjectDetailPage: React.FC = () => {
           </div>
         </div>
 
-        {/* Action Controls */}
         <div className="flex items-center gap-2 self-end md:self-center shrink-0">
           {hasPermission('project:update') && (
             <Button variant="outline" size="sm" onClick={() => setIsEditModalOpen(true)} className="h-9">
@@ -268,7 +292,6 @@ export const ProjectDetailPage: React.FC = () => {
         </div>
       </div>
 
-      {/* Stats Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <Card>
           <CardContent className="p-4">
@@ -328,7 +351,6 @@ export const ProjectDetailPage: React.FC = () => {
         </Card>
       </div>
 
-      {/* Tabs Layout Container */}
       <Tabs defaultValue="overview" className="space-y-6">
         <TabsList>
           <TabsTrigger value="overview">Overview</TabsTrigger>
@@ -339,7 +361,6 @@ export const ProjectDetailPage: React.FC = () => {
 
         <TabsContent value="overview" className="space-y-6">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* Task Distribution */}
             <Card>
               <CardHeader>
                 <CardTitle>Task Distribution</CardTitle>
@@ -361,7 +382,6 @@ export const ProjectDetailPage: React.FC = () => {
               </CardContent>
             </Card>
 
-            {/* Project Details */}
             <Card>
               <CardHeader>
                 <CardTitle>Project Details</CardTitle>
@@ -424,8 +444,8 @@ export const ProjectDetailPage: React.FC = () => {
                     >
                       <div className="flex items-center gap-3">
                         <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${task.status === 'done' ? 'bg-emerald-500/10 text-emerald-500' :
-                            task.status === 'in-progress' ? 'bg-blue-500/10 text-blue-500' :
-                              'bg-muted text-muted-foreground'
+                          task.status === 'in-progress' ? 'bg-blue-500/10 text-blue-500' :
+                            'bg-muted text-muted-foreground'
                           }`}>
                           {task.status}
                         </span>
@@ -455,33 +475,49 @@ export const ProjectDetailPage: React.FC = () => {
             <CardHeader className="flex flex-row items-center justify-between space-y-0">
               <CardTitle>Team Members</CardTitle>
               {hasPermission('project:manage_members') && (
-                <Button size="sm" onClick={() => navigate('/team')}>
-                  <Plus className="w-4 h-4 mr-2" />
-                  Add Member
+                <Button size="sm" onClick={() => setIsMemberModalOpen(true)}>
+                  <Plus className="w-4 h-4 mr-2" /> Add Member
                 </Button>
               )}
             </CardHeader>
             <CardContent>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {(project.members || []).map((member, index) => (
-                  <div
-                    key={member._id || member.id || member.email || index}
-                    className="flex items-center gap-3 p-3 rounded-lg border border-border"
-                  >
-                    <Avatar src={member.avatar} name={member.name || member.email || 'Team Member'} size="md" />
-                    <div>
-                      <p className="font-medium">{member.name || 'Team Member'}</p>
-                      <p className="text-sm text-muted-foreground">{member.email || ''}</p>
+                {project.members && project.members.length > 0 ? (
+                  project.members.map((member: any, index: number) => (
+                    <div
+                      key={member.user?._id || member._id || index} // Use optional chaining here
+                      className="flex items-center justify-between p-4 rounded-lg border border-border"
+                    >
+                      <div className="flex items-center gap-3">
+                        <Avatar
+                          src={member.user?.avatar || member.avatar}
+                          name={member.user?.name || member.name || 'Team Member'}
+                        />
+                        <div>
+                          <p className="text-sm font-medium">{member.user?.name || member.name || 'Team Member'}</p>
+                        </div>
+                      </div>
+
+                      {/* ADD DELETE BUTTON HERE */}
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="text-destructive"
+                        onClick={() => handleRemoveMember(member)} // Pass the whole object
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
                     </div>
-                  </div>
-                ))}
+                  ))
+                ) : (
+                  <p>No team members.</p>
+                )}
               </div>
             </CardContent>
           </Card>
         </TabsContent>
       </Tabs>
 
-      {/* Edit Modal */}
       <EditProjectModal
         project={project}
         open={isEditModalOpen}
@@ -489,7 +525,6 @@ export const ProjectDetailPage: React.FC = () => {
         onUpdate={handleProjectUpdate}
       />
 
-      {/* Delete Confirmation */}
       <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
         <AlertDialogContent className="sm:max-w-[425px]">
           <AlertDialogHeader>
@@ -508,7 +543,6 @@ export const ProjectDetailPage: React.FC = () => {
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* Archive Confirmation */}
       <AlertDialog open={isArchiveDialogOpen} onOpenChange={setIsArchiveDialogOpen}>
         <AlertDialogContent className="sm:max-w-[425px]">
           <AlertDialogHeader>
@@ -529,6 +563,18 @@ export const ProjectDetailPage: React.FC = () => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {project && (
+        <AddMemberModal
+          projectId={project._id || project.id}
+          isOpen={isMemberModalOpen}
+          onClose={() => setIsMemberModalOpen(false)}
+          onSuccess={() => {
+            setIsMemberModalOpen(false);
+            fetchProjectData(); // This refreshes the UI after adding a member
+          }}
+        />
+      )}
     </div>
   );
 };
