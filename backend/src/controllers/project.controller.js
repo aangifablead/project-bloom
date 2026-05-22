@@ -22,12 +22,81 @@ const formatProjectData = (project) => {
 ========================================= */
 exports.getAllProjects = async (req, res) => {
   try {
-    const projects = await Project.find({})
-      .populate('owner', 'name avatar');
+    const projects = await Project.aggregate([
+      {
+        $lookup: {
+          from: 'tasks',
+          let: { projectId: '$_id' },
+          pipeline: [
+            {
+              $match: {
+                $expr: {
+                  $eq: ['$projectId', '$$projectId'],
+                },
+              },
+            },
+          ],
+          as: 'tasks',
+        },
+      },
 
-    return res.status(200).json(projects);
-  } catch (error) {
-    return res.status(500).json({ message: error.message });
+      {
+        $addFields: {
+          tasksCount: { $size: '$tasks' },
+
+          completedTasksCount: {
+            $size: {
+              $filter: {
+                input: '$tasks',
+                as: 't',
+                cond: {
+                  $in: ['$$t.status', ['completed', 'done']],
+                },
+              },
+            },
+          },
+        },
+      },
+
+      {
+        $addFields: {
+          progress: {
+            $cond: [
+              { $eq: ['$tasksCount', 0] },
+              0,
+              {
+                $multiply: [
+                  { $divide: ['$completedTasksCount', '$tasksCount'] },
+                  100,
+                ],
+              },
+            ],
+          },
+        },
+      },
+
+      {
+        $project: {
+          _id: 0,
+          id: { $toString: '$_id' },
+          tasks: 1,
+          tasksCount: 1,
+          completedTasksCount: 1,
+          progress: 1,
+          name: 1,
+          description: 1,
+          color: 1,
+          status: 1,
+          members: 1,
+          startDate: 1,
+          endDate: 1,
+        },
+      },
+    ]);
+
+    return res.json(projects);
+  } catch (err) {
+    return res.status(500).json({ error: err.message });
   }
 };
 
@@ -293,7 +362,7 @@ exports.removeProjectMember = async (req, res) => {
     const updatedProject = await project.save(); // Save and store the result
 
     // Return the updated project so the frontend gets the fresh member list
-    return res.status(200).json(updatedProject); 
+    return res.status(200).json(updatedProject);
   } catch (err) {
     return res.status(500).json({ error: err.message });
   }

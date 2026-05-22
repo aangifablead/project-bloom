@@ -39,8 +39,7 @@ apiInstance.interceptors.response.use(
       originalRequest._retry = true;
 
       try {
-        console.log("Access token expired mid-session. Attempting background refresh...");
-        
+               
         const refreshResponse = await axios.post(
           'http://localhost:5000/api/auth/refresh',
           {},

@@ -80,7 +80,6 @@ export const DashboardPage: React.FC = () => {
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const { user } = useAuth();
-  console.log(stats, 'statsstats')
   /* -------------------- FETCH DATA -------------------- */
 
   useEffect(() => {

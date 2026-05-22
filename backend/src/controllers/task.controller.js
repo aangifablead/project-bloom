@@ -123,30 +123,37 @@ const taskController = {
   },
 
   // ---------------- STATUS ----------------
-  updateStatus: async (req, res, next) => {
-    try {
-      const task = await Task.findById(req.params.id);
-      if (!task) return res.status(404).json({ message: 'Task not found' });
+// controllers/task.controller.js
+updateStatus: async (req, res, next) => {
+  try {
+    const task = await Task.findById(req.params.id);
+    if (!task) return res.status(404).json({ message: 'Task not found' });
 
-      const old = task.status;
-      task.status = req.body.status;
+    const oldStatus = task.status;
+    const newStatus = req.body.status;
+    
+    // Update the task status
+    task.status = newStatus;
+    await task.save();
 
-      await task.save();
+    // 1. Capture the ID
+    const userId = req.user?.id || req.userId; // Ensure this matches your auth middleware
 
-      await createHistory({
-        task,
-        userId: getUserId(req),
-        action: 'status_changed',
-        field: 'status',
-        oldValue: old,
-        newValue: task.status,
-      });
+    // 2. Log history
+    await createHistory({
+      task, // Ensure your createHistory function handles the task object correctly
+      userId: userId, 
+      action: 'status_changed',
+      field: 'status',
+      oldValue: oldStatus,
+      newValue: newStatus,
+    });
 
-      res.json(task);
-    } catch (err) {
-      next(err);
-    }
-  },
+    res.status(200).json(task);
+  } catch (err) {
+    next(err);
+  }
+},
 
   // ---------------- DELETE ----------------
   deleteTask: async (req, res, next) => {
@@ -197,19 +204,23 @@ const taskController = {
   },
 
   // ---------------- ASSIGN ----------------
-  assignTask: async (req, res, next) => {
-    try {
-      const task = await Task.findByIdAndUpdate(
-        req.params.id,
-        { assigneeId: req.body.userId },
-        { new: true }
-      );
+ // Add these to your assign/unassign methods
+assignTask: async (req, res, next) => {
+  try {
+    const task = await Task.findByIdAndUpdate(req.params.id, { assigneeId: req.body.userId }, { new: true });
+    
+    // LOG HISTORY
+    await createHistory({
+      task,
+      userId: getUserId(req), // Use helper consistently
+      action: 'assigned',
+      field: 'assigneeId',
+      newValue: req.body.userId
+    });
 
-      res.json(task);
-    } catch (err) {
-      next(err);
-    }
-  },
+    res.json(task);
+  } catch (err) { next(err); }
+},
 
   unassignTask: async (req, res, next) => {
     try {
@@ -226,25 +237,29 @@ const taskController = {
   },
 
   // ---------------- HISTORY ----------------
-  getHistory: async (req, res, next) => {
-    try {
-      const history = await TaskHistory.find({ taskId: req.params.id })
-        .populate('userId', 'name avatar')
-        .sort({ createdAt: -1 })
-        .lean();
+getHistory: async (req, res, next) => {
+  try {
+    const history = await TaskHistory.find({ taskId: req.params.id })
+      .populate('userId', 'name avatar') // Ensure User model supports 'name' and 'avatar'
+      .sort({ createdAt: -1 })
+      .lean();
 
-      const result = history.map((h) => ({
-        ...h,
-        message: `${h.userId?.name || 'System'} ${h.action === 'status_changed'
+    const result = history.map((h) => ({
+      ...h,
+      // Use optional chaining to safely check for name
+      message: `${h.userId?.name || 'System'} ${
+        h.action === 'status_changed'
           ? `changed status from ${h.oldValue ?? 'empty'} → ${h.newValue ?? 'empty'}`
-          : `updated task`
-          }`
-      }));
-      res.json(result);
-    } catch (err) {
-      next(err);
-    }
-  },
+          : h.action === 'created' 
+            ? 'created this task'
+            : 'updated task'
+      }`
+    }));
+    res.json(result);
+  } catch (err) {
+    next(err);
+  }
+},
 
   // ---------------- LABELS ----------------
   getLabels: async (req, res, next) => {

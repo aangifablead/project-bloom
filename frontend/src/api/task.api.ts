@@ -109,8 +109,7 @@ export const taskApi = {
   // },
 // src/api/task.api.ts
 updateStatus: async (id: string, status: Task['status']): Promise<Task> => {
-  console.log('Sending to API:', status); // Should print "in-progress"
-  return apiClient.patch(`/tasks/${id}/status`, { status }).then(res => res.data);
+    return apiClient.patch(`/tasks/${id}/status`, { status }).then(res => res.data);
 },
   /**
    * Assign task to user

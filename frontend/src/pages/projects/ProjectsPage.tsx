@@ -67,38 +67,56 @@ export const ProjectsPage: React.FC = () => {
     color: projectColors[0],
   });
   const { toast } = useToast();
-  useEffect(() => {
-    const fetchProjects = async () => {
-      try {
-        setIsLoading(true);
-        const response = await projectApi.getAll(); // ⚡ Calling API
+useEffect(() => {
+  const fetchProjects = async () => {
+    try {
+      setIsLoading(true);
 
-        // 🟢 Defend against object payloads by picking out the array
-        if (Array.isArray(response)) {
-          setProjects(response);
-        } else if (response && typeof response === 'object') {
-          // If the backend wraps the array in a "data" or "projects" key
-          const extractedData = (response as any).projects || (response as any).data;
-          setProjects(Array.isArray(extractedData) ? extractedData : []);
-        } else {
-          setProjects([]);
-        }
+      const data = await projectApi.getAll();
+      const list = Array.isArray(data) ? data : [];
 
-      } catch (error) {
-        console.error('Failed to fetch projects:', error);
-        toast({
-          variant: 'destructive',
-          title: 'Error',
-          description: 'Failed to load projects from server.',
-        });
-        setProjects([]); // Fallback to safe array on error
-      } finally {
-        setIsLoading(false);
-      }
-    };
+      // 🔥 FIX: normalize stats WITHOUT changing UI
+      const normalized = list.map((p: any) => {
+        const tasks = p.tasks || [];
 
-    fetchProjects();
-  }, [toast]);
+        const totalTasks = p.tasksCount ?? tasks.length;
+
+        const completedTasks =
+          p.completedTasksCount ??
+          tasks.filter((t: any) => t.status === 'completed').length;
+
+        const progress =
+          p.progress ??
+          (totalTasks === 0
+            ? 0
+            : Math.round((completedTasks / totalTasks) * 100));
+
+        return {
+          ...p,
+          tasksCount: totalTasks,
+          completedTasksCount: completedTasks,
+          progress,
+        };
+      });
+
+      setProjects(normalized);
+    } catch (error) {
+      console.error('Failed to fetch projects:', error);
+
+      toast({
+        variant: 'destructive',
+        title: 'Error',
+        description: 'Failed to load projects from server.',
+      });
+
+      setProjects([]);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  fetchProjects();
+}, [toast]);
 
   const filteredProjects = projects.filter((project) =>
     project.name?.toLowerCase().includes(searchQuery.toLowerCase())

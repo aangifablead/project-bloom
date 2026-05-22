@@ -49,20 +49,16 @@ const taskHistorySchema = new mongoose.Schema(
 // ======================================
 // VIRTUAL MESSAGE
 // ======================================
+
 taskHistorySchema.virtual('message').get(function () {
-  // Fix: Show name if user exists, otherwise fallback to "System" or "Anonymous"
-  const userName = this.userId?.name || 'System'; 
+  // If 'userId' was populated, it's an object; otherwise, it's an ObjectId
+  const userName = (this.userId && this.userId.name) ? this.userId.name : 'System';
   const taskTitle = this.taskTitle || 'task';
 
-  // Only show changes if they are NOT null or undefined
   const formatVal = (val) => (val === null || val === undefined ? 'empty' : val);
 
   if (this.action === 'status_changed') {
     return `${userName} changed "${taskTitle}" from ${formatVal(this.oldValue)} → ${formatVal(this.newValue)}`;
-  }
-
-  if (this.action === 'updated' && this.field === 'title') {
-    return `${userName} renamed "${formatVal(this.oldValue)}" to "${formatVal(this.newValue)}"`;
   }
 
   return `${userName} updated "${taskTitle}"`;
