@@ -316,12 +316,12 @@ useEffect(() => {
                             Edit
                           </Link>
                         </DropdownMenuItem>
-                        <DropdownMenuItem asChild>
+                        {/* <DropdownMenuItem asChild>
                           <Link to={`/projects/${project.id}/settings`}>
                             <Settings className="w-4 h-4 mr-2" />
                             Settings
                           </Link>
-                        </DropdownMenuItem>
+                        </DropdownMenuItem> */}
                         <DropdownMenuSeparator />
                         <DropdownMenuItem
                           className="text-destructive"
