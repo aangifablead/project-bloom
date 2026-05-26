@@ -5,7 +5,7 @@ const cookieParser = require('cookie-parser');
 // Import middleware
 const { errorMiddleware, notFoundHandler } = require('./middlewares/error.middleware');
 const { loadEnv } = require('./config/env');
-
+const gitRoutes = require('./routes/gitRoutes.js');
 // Import routes
 const authRoutes = require('./routes/auth.routes');
 const userRoutes = require('./routes/userRoutes.js'); 
@@ -22,7 +22,15 @@ const app = express();
 // Middleware
 app.use(cors({
   origin: 'http://localhost:8080',
-  credentials: true
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+}));
+app.options('*', cors({
+  origin: 'http://localhost:8080',
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
 }));
 app.use(morgan('combined'));
 app.use(express.json({ limit: '10mb' }));
@@ -36,7 +44,7 @@ app.use('/api/projects', projectRoutes);
 app.use('/api/tasks', taskRoutes);
 app.use('/api/team', teamRoutes);
 app.use('/api/analytics', analyticsRoutes);
-
+app.use('/api/git', gitRoutes);
 // Health check endpoint
 app.get('/health', (req, res) => {
   res.status(200).json({

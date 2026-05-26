@@ -58,4 +58,20 @@ router.route('/:id/milestones/:milestoneId')
   .patch(protect, updateMilestone)
   .delete(protect, deleteMilestone);
 
+  // Add this to backend/routes/project.routes.js
+router.patch('/:id', async (req, res) => {
+    try {
+        const { repoOwner, repoName } = req.body;
+        // Update project with the new repository details
+        const updatedProject = await Project.findByIdAndUpdate(
+            req.params.id, 
+            { repoOwner, repoName }, 
+            { new: true }
+        );
+        res.json(updatedProject);
+    } catch (error) {
+        res.status(500).json({ error: "Failed to update repository link" });
+    }
+});
+
 module.exports = router;

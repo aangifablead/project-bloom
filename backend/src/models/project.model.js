@@ -45,9 +45,13 @@ const projectSchema = new mongoose.Schema({
   description: String,
   color: { type: String, default: '#5c6bc0' },
 
+  // ADD THESE TWO FIELDS
+  repoOwner: { type: String },
+  repoName: { type: String },
+
   owner: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: 'User', // login user stays here
+    ref: 'User',
     required: true
   },
 

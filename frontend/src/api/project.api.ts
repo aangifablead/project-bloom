@@ -111,4 +111,7 @@ export const projectApi = {
 
   deleteMilestone: async (projectId: string, milestoneId: string): Promise<void> =>
     await apiClient.delete(`/projects/${projectId}/milestones/${milestoneId}`),
+
+  linkRepository: async (id: string, repoOwner: string, repoName: string): Promise<Project> =>
+  handleResponse(await apiClient.patch(`/projects/${id}`, { repoOwner, repoName })),
 };

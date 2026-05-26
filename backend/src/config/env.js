@@ -21,7 +21,7 @@ const loadEnv = () => {
   }
 
   // Set default values for optional environment variables
-  process.env.PORT = process.env.PORT || '8080';
+  process.env.PORT = process.env.PORT || '5000';
   process.env.NODE_ENV = process.env.NODE_ENV || 'development';
   process.env.JWT_REFRESH_EXPIRE = process.env.JWT_REFRESH_EXPIRE || '30d';
   process.env.MAX_LOGIN_ATTEMPTS = process.env.MAX_LOGIN_ATTEMPTS || '5';

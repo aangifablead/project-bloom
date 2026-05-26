@@ -26,8 +26,22 @@ export interface Project {
   color: string;
   createdAt: string;
   updatedAt: string;
+  
+  // ADD THESE FIELDS
+  repoName?: string;  // The name of the repository
+  repoOwner?: string; // The GitHub username or organization
 }
-
+export interface UpdateProjectRequest {
+  name?: string;
+  description?: string;
+  status?: Project['status'];
+  color?: string;
+  startDate?: string;
+  endDate?: string;
+  // ADD THESE LINES
+  repoName?: string;
+  repoOwner?: string;
+}
 export interface Task {
   id: string; // Keep this for frontend convenience
   _id: string; // The database primary key

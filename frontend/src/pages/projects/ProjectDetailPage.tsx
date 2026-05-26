@@ -47,6 +47,7 @@ import { EditProjectModal } from '@/components/projects/EditProjectModal';
 import { MilestoneTimeline } from '@/components/projects/MilestoneTimeline';
 import { AddMemberModal } from '@/pages/projects/AddMemberModal';
 import { CreateMilestoneModal } from '@/pages/projects/CreateMilestoneModal';
+import { RepositoryView } from '@/components/projects/RepositoryView';
 
 const usePermissionCheck = () => {
   return (permission: string) => true;
@@ -371,6 +372,7 @@ export const ProjectDetailPage: React.FC = () => {
           <TabsTrigger value="tasks">Tasks ({tasks.length})</TabsTrigger>
           <TabsTrigger value="milestones">Milestones</TabsTrigger>
           <TabsTrigger value="members">Members</TabsTrigger>
+          <TabsTrigger value="repository">Repository</TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview" className="space-y-6">
@@ -538,6 +540,15 @@ export const ProjectDetailPage: React.FC = () => {
               </div>
             </CardContent>
           </Card>
+        </TabsContent>
+
+        <TabsContent value="repository">
+          <RepositoryView
+            projectId={project._id || project.id} // Pass the ID
+            owner={project.repoOwner}
+            repo={project.repoName}
+            onRefresh={fetchProjectData} // Pass the refresh function
+          />
         </TabsContent>
       </Tabs>
 
